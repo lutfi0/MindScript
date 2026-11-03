@@ -135,7 +135,7 @@
         </div>
       </div>
 
-      <div class="cols">
+      <div class="cols even">
         <div class="card">
           <h2 data-i18n="model.title">Speech model</h2>
           <p class="card-sub" data-i18n="model.sub">Choose the local model that turns speech into text.</p>
@@ -147,28 +147,30 @@
           <button class="linklike" type="button" data-goto="modeller"><span data-i18n="shortcuts.edit">Edit</span> <span class="arrow">→</span></button>
         </div>
 
-        <div class="col-stack">
-          <div class="card">
-            <h2 data-i18n="polish.title">Text cleanup</h2>
-            <p class="card-sub" data-i18n="polish.sub">Fix punctuation, capitalization and typos with a local AI model.</p>
-            <div class="switch-row">
-              <label class="switch"><input type="checkbox" id="polishEnabled" /><span class="track"></span></label>
-              <div>
-                <div class="switch-title" data-i18n="polish.toggle">Clean up text automatically</div>
-                <div class="strip-sub" data-i18n="polish.toggleSub">Automatically fixes the text after dictation.</div>
-              </div>
+        <div class="card">
+          <h2 data-i18n="polish.title">Text cleanup</h2>
+          <p class="card-sub" data-i18n="polish.sub">Fix punctuation, capitalization and typos with a local AI model.</p>
+          <div class="switch-row">
+            <label class="switch"><input type="checkbox" id="polishEnabled" /><span class="track"></span></label>
+            <div>
+              <div class="switch-title" data-i18n="polish.toggle">Clean up text automatically</div>
+              <div class="strip-sub" data-i18n="polish.toggleSub">Automatically fixes the text after dictation.</div>
             </div>
-            <dl class="summary">
-              <dt data-i18n="cleanup.engine">Engine</dt><dd id="sumCleanupEngine"></dd>
-              <dt data-i18n="summary.model">Model</dt><dd id="sumCleanupModel"></dd>
-              <dt data-i18n="model.info.status">Status</dt><dd><span class="conn" id="polishConn"><span class="dot" id="polishDot"></span><span id="polishConnText">—</span></span></dd>
-            </dl>
-            <button class="linklike" type="button" data-goto="metin"><span data-i18n="shortcuts.edit">Edit</span> <span class="arrow">→</span></button>
           </div>
+          <dl class="summary">
+            <dt data-i18n="cleanup.engine">Engine</dt><dd id="sumCleanupEngine"></dd>
+            <dt data-i18n="summary.model">Model</dt><dd id="sumCleanupModel"></dd>
+            <dt data-i18n="model.info.status">Status</dt><dd><span class="conn" id="polishConn"><span class="dot" id="polishDot"></span><span id="polishConnText">—</span></span></dd>
+          </dl>
+          <button class="linklike" type="button" data-goto="metin"><span data-i18n="shortcuts.edit">Edit</span> <span class="arrow">→</span></button>
+        </div>
+      </div>
 
-          <div class="card">
-            <h2 data-i18n="behavior.title">Dictation behavior</h2>
-            <p class="card-sub" data-i18n="behavior.sub">Control how text is inserted and where the bar appears.</p>
+      <div class="card">
+        <h2 data-i18n="behavior.title">Dictation behavior</h2>
+        <p class="card-sub" data-i18n="behavior.sub">Control how text is inserted and where the bar appears.</p>
+        <div class="wide-body">
+          <div>
             <div class="switch-row">
               <label class="switch"><input type="checkbox" id="liveDrafts" /><span class="track"></span></label>
               <div>
@@ -183,14 +185,14 @@
                 <div class="strip-sub" data-i18n="behavior.startupSub">MindScript waits in the tray when you sign in.</div>
               </div>
             </div>
-            <dl class="summary">
-              <dt data-i18n="behavior.paste">Text insertion</dt><dd id="sumPaste"></dd>
-              <dt data-i18n="behavior.overlayPos">Recording bar position</dt><dd id="sumOverlay"></dd>
-              <dt data-i18n="behavior.uiLang">App language</dt><dd id="sumUiLang"></dd>
-            </dl>
-            <button class="linklike" type="button" data-goto="davranis"><span data-i18n="shortcuts.edit">Edit</span> <span class="arrow">→</span></button>
           </div>
+          <dl class="summary">
+            <dt data-i18n="behavior.paste">Text insertion</dt><dd id="sumPaste"></dd>
+            <dt data-i18n="behavior.overlayPos">Recording bar position</dt><dd id="sumOverlay"></dd>
+            <dt data-i18n="behavior.uiLang">App language</dt><dd id="sumUiLang"></dd>
+          </dl>
         </div>
+        <button class="linklike" type="button" data-goto="davranis"><span data-i18n="shortcuts.edit">Edit</span> <span class="arrow">→</span></button>
       </div>
 
       <div class="card shortcuts">

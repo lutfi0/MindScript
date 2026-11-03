@@ -1,0 +1,81 @@
+# Builds whisper.cpp's whisper-server with the Vulkan backend for Windows x64
+# and publishes it as a prerelease asset. whisper.cpp only ships CUDA builds
+# for Windows; MindScript downloads this one on AMD / Intel GPUs.
+# Run manually from the Actions tab.
+name: whisper.cpp Vulkan runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: whisper.cpp release tag to build
+        default: v1.9.5
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-2022
+    env:
+      WHISPER_VERSION: ${{ inputs.version }}
+      VULKAN_VERSION: 1.4.363.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ggml-org/whisper.cpp
+          ref: ${{ inputs.version }}
+          path: whisper.cpp
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          $installer = "$env:RUNNER_TEMP\vulkansdk.exe"
+          curl.exe -sSL -o $installer "https://sdk.lunarg.com/sdk/download/$env:VULKAN_VERSION/windows/vulkansdk-windows-X64-$env:VULKAN_VERSION.exe"
+          & $installer --root "C:\VulkanSDK\$env:VULKAN_VERSION" --accept-licenses --default-answer --confirm-command install | Out-Null
+          "VULKAN_SDK=C:\VulkanSDK\$env:VULKAN_VERSION" | Out-File $env:GITHUB_ENV -Append
+          "C:\VulkanSDK\$env:VULKAN_VERSION\Bin" | Out-File $env:GITHUB_PATH -Append
+
+      - name: Build
+        shell: pwsh
+        working-directory: whisper.cpp
+        run: |
+          # Same CPU options as the official Windows releases, plus Vulkan
+          cmake -B build -A x64 `
+            -DGGML_VULKAN=ON -DGGML_NATIVE=OFF `
+            -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON `
+            -DWHISPER_BUILD_TESTS=OFF -DWHISPER_SDL2=OFF
+          cmake --build build --config Release -j 4
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $out = "$env:RUNNER_TEMP\pkg"
+          New-Item -ItemType Directory $out | Out-Null
+          $bin = 'whisper.cpp\build\bin\Release'
+          Copy-Item "$bin\whisper-server.exe", "$bin\whisper.dll" $out
+          Copy-Item "$bin\ggml*.dll" $out
+          Copy-Item whisper.cpp\LICENSE "$out\LICENSE-whisper.cpp.txt"
+          # App-local Visual C++ runtime, so no separate redistributable install is needed
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $crt = Get-ChildItem "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" -Directory | Sort-Object FullName | Select-Object -Last 1
+          Copy-Item "$($crt.FullName)\msvcp140.dll", "$($crt.FullName)\vcruntime140.dll", "$($crt.FullName)\vcruntime140_1.dll" $out
+          if (-not (Test-Path "$out\ggml-vulkan.dll")) { throw 'ggml-vulkan.dll missing' }
+          Get-ChildItem $out | Format-Table Name, Length
+          Compress-Archive "$out\*" "whisper-vulkan-$env:WHISPER_VERSION-win-x64.zip"
+
+      - name: Publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "whisper-vulkan-$env:WHISPER_VERSION"
+          $zip = "whisper-vulkan-$env:WHISPER_VERSION-win-x64.zip"
+          $notes = "whisper.cpp $env:WHISPER_VERSION (MIT, https://github.com/ggml-org/whisper.cpp) built with the Vulkan backend for Windows x64 by this workflow. Downloaded by MindScript on AMD and Intel GPUs; not an app release."
+          gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $zip --clobber --repo $env:GITHUB_REPOSITORY
+          } else {
+            gh release create $tag $zip --prerelease --target $env:GITHUB_SHA --title "whisper.cpp $env:WHISPER_VERSION Vulkan runtime" --notes $notes --repo $env:GITHUB_REPOSITORY
+          }

@@ -195,7 +195,7 @@ export class TranscriptionEngine {
       let load = this.modelLoads.get(model);
       if (!load) {
         load = (async () => {
-          this.emit({ state: 'loading', model, message: tMain('main.cudaStarting') });
+          this.emit({ state: 'loading', model, message: tMain('main.gpuStarting') });
           const url = await this.cpp.ensureReady(model);
           this.loadedModels.add(model);
           this.emit({ state: 'ready', model, message: tMain('main.modelReady') });

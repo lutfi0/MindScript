@@ -259,9 +259,9 @@ function showModelInfo(id: string, kind: Kind): void {
     [
       t('model.info.engine'),
       kind === 'cleanup'
-        ? t('model.engine.llama')
+        ? t('model.engine.llama', { gpu: gpuApi() })
         : id.startsWith('ggml-')
-          ? t('model.engine.cpp')
+          ? t('model.engine.cpp', { gpu: gpuApi() })
           : t('model.engine.tjs'),
     ],
     [t('model.info.size'), e.downloaded && e.sizeOnDisk ? fmtBytes(e.sizeOnDisk) : e.size],
@@ -425,7 +425,7 @@ function selectedText(id: string): string {
  *  on each section's own page; only on/off switches live here. */
 function renderSummary(): void {
   $('sumModel').textContent = labelFor(selectedModel);
-  $('sumEngine').textContent = selectedModel.startsWith('ggml-') ? t('model.engine.cpp') : t('model.engine.tjs');
+  $('sumEngine').textContent = selectedModel.startsWith('ggml-') ? t('model.engine.cpp', { gpu: gpuApi() }) : t('model.engine.tjs');
   ($('language') as HTMLSelectElement).value = settings.engine.language;
   $('sumLang').textContent = selectedText('language');
 
@@ -484,20 +484,28 @@ const anySpeechModel = (): boolean => Object.values(modelCatalog).some((e) => e.
 
 /** A first model that fits this computer — a suggestion, never a requirement. */
 function suggestion(): { id: string; why: string } {
-  if (hardware?.nvidia) {
-    return (hardware.vramMb ?? 8192) >= 4000
+  // unknown VRAM: NVIDIA cards without nvidia-smi are rare and usually big;
+  // on AMD/Intel it often means an integrated GPU
+  const vram = hardware?.vramMb ?? (hardware?.nvidia ? 8192 : 0);
+  // Integrated AMD/Intel GPUs (little dedicated memory) are slower through
+  // whisper.cpp Vulkan than a small WebGPU model, so only cards get it.
+  if (hardware?.backend && (hardware.nvidia || vram >= 2048)) {
+    return vram >= 4000
       ? { id: 'ggml-large-v3-turbo-q5', why: t('onb.why.cudaBig') }
       : { id: 'ggml-small-q5', why: t('onb.why.cudaSmall') };
   }
   return { id: 'whisper-base', why: hasWebGpu ? t('onb.why.webgpu') : t('onb.why.cpu') };
 }
 
+/** Name of the native engine's GPU API on this computer, for labels. */
+const gpuApi = (): string => (hardware?.backend === 'vulkan' ? 'Vulkan' : 'NVIDIA CUDA');
+
 function renderOnboarding(): void {
   $('navStart').classList.toggle('hidden', anySpeechModel());
   if (!hardware) return;
-  $('onbHw').textContent = hardware.nvidia
-    ? t('onb.hw.nvidia', {
-        name: hardware.gpuName ?? 'NVIDIA',
+  $('onbHw').textContent = hardware.backend
+    ? t('onb.hw.gpu', {
+        name: hardware.gpuName ?? (hardware.nvidia ? 'NVIDIA' : 'GPU'),
         vram: hardware.vramMb ? ` · ${(hardware.vramMb / 1024).toFixed(0)} GB` : '',
       })
     : hasWebGpu
@@ -943,6 +951,7 @@ async function init(): Promise<void> {
   const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
   hasWebGpu = Boolean(gpu && (await gpu.requestAdapter().catch(() => null)));
   hardware = await window.msSettings.getHardware();
+  if (hardware.backend === 'vulkan') applyI18n(); // engine labels name the GPU API
   renderOnboarding();
 
   window.msSettings.onModelStatus(applyModelStatus);

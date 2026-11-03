@@ -16,15 +16,15 @@ and text cleanup both run locally, and your audio never leaves the machine.
 ## Features
 
 - **Local speech recognition.** Whisper models run through a bundled
-  whisper.cpp server on NVIDIA GPUs (CUDA), roughly 10–30× faster than real
-  time. Computers without a supported GPU fall back to transformers.js with
-  WebGPU, or the CPU.
+  whisper.cpp server on the GPU — CUDA on NVIDIA cards, Vulkan on AMD and
+  Intel cards — many times faster than real time. Computers without a
+  supported GPU fall back to transformers.js with WebGPU, or the CPU.
 - **Live draft.** Optionally shows the transcript in the recording bar while
   you speak; the final text is pasted when you stop.
 - **AI text cleanup (optional).** Fixes punctuation, capitalization and typos
   after dictation:
   - **Built-in (GPU):** a small model (Qwen3.5 2B or Gemma 3 4B) runs through a
-    bundled llama.cpp CUDA server. Nothing to install; about 0.1–0.5 s per
+    bundled llama.cpp GPU server (CUDA or Vulkan). Nothing to install; about 0.1–0.5 s per
     sentence once loaded, and it unloads from GPU memory when idle.
   - **Ollama:** use your own local Ollama server instead.
 
@@ -53,8 +53,9 @@ and text cleanup both run locally, and your audio never leaves the machine.
 ## Requirements
 
 - Windows 10 or 11, 64-bit
-- NVIDIA GPU recommended (CUDA models and built-in cleanup). Without one,
-  the WebGPU/CPU speech models still work.
+- A graphics card is recommended for the GPU speech models and built-in
+  cleanup: NVIDIA (CUDA), or AMD / Intel (Vulkan, through the regular
+  graphics driver). Without one, the WebGPU/CPU speech models still work.
 - Internet only for the one-time model downloads
 
 ## Installation
@@ -71,8 +72,9 @@ Nothing is downloaded until you choose a model.
 2. Optional, **Text cleanup** page: switch cleanup on, keep the engine on
    *Built-in (GPU)* and download a cleanup model.
 
-The GPU engines (whisper.cpp for the CUDA speech models, llama.cpp for
-cleanup) are downloaded together with the first model that needs them.
+The GPU engines (whisper.cpp for the GPU speech models, llama.cpp for
+cleanup) are downloaded together with the first model that needs them, in
+the build that fits your graphics card (CUDA or Vulkan).
 
 ### About the models
 
@@ -81,7 +83,7 @@ made by third parties, are independent of MindScript, and come with their
 own licenses (see below). You can also add any other compatible model from a
 download link, for example from Hugging Face:
 
-- speech: a whisper.cpp **ggml `.bin`** file (runs on NVIDIA GPUs),
+- speech: a whisper.cpp **ggml `.bin`** file (runs on the GPU engine),
 - text cleanup: a **`.gguf`** file.
 
 Open the file on Hugging Face, copy its download link and paste it under
@@ -109,8 +111,11 @@ connects to the internet only to:
 
 - download models from Hugging Face (once per model),
 - download the whisper.cpp and llama.cpp GPU engines from their official
-  GitHub releases (once each, only when you pick a CUDA or built-in cleanup
-  model),
+  GitHub releases (once each, only when you pick a GPU speech or built-in
+  cleanup model). whisper.cpp publishes no Vulkan build for Windows, so for
+  AMD/Intel cards it is built from the official source by this repository's
+  [GitHub Actions workflow](.github/workflows/whisper-vulkan.yml) and
+  downloaded from this repository's releases,
 - check for app updates on GitHub Releases.
 
 Settings, history and models are stored in `%APPDATA%\mindscript\`.
@@ -150,8 +155,8 @@ src/
 ├── main/            main process
 │   ├── main.ts          dictation state machine, IPC, app lifecycle
 │   ├── engine.ts        speech engine: transformers.js window or whisper.cpp
-│   ├── whispercpp.ts    whisper.cpp CUDA server lifecycle
-│   ├── llamacpp.ts      llama.cpp CUDA server + cleanup model downloads
+│   ├── whispercpp.ts    whisper.cpp GPU server lifecycle
+│   ├── llamacpp.ts      llama.cpp GPU server + cleanup model downloads
 │   ├── polish.ts        text cleanup (built-in engine or Ollama) with guardrails
 │   ├── transcript.ts    repetition cleanup
 │   ├── models.ts        speech model downloads (with mirror fallback)
@@ -194,9 +199,12 @@ MindScript downloads or bundles these components, each under its own license
 | Qwen3.5 2B | Apache-2.0 |
 | Gemma 3 4B | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
 | NVIDIA CUDA runtime libraries | NVIDIA CUDA EULA |
+| Microsoft Visual C++ runtime (in the whisper.cpp Vulkan build) | Visual Studio redistributable terms |
 
 Models and the GPU runtimes are downloaded by the user from their original
-sources; they are not redistributed with MindScript. The license texts of the
+sources and are not part of the installer. The one exception is the
+whisper.cpp Vulkan build, which this repository builds and hosts as a
+release asset together with whisper.cpp's MIT license. The license texts of the
 bundled libraries ship inside the installed app (`LICENSE.electron.txt`,
 `LICENSES.chromium.html`, `dist/vendor/`).
 

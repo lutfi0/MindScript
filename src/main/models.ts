@@ -1,13 +1,14 @@
 // Downloads Whisper model files once from HuggingFace into
 // userData/models/<modelId>/ and reports progress to every open window.
-// ggml (CUDA) models also need the whisper.cpp server, fetched once from the
-// official whisper.cpp GitHub release. After that MindScript runs offline.
+// ggml models also need the whisper.cpp server (CUDA or Vulkan build), fetched
+// once from a GitHub release. After that MindScript runs offline.
 import { app, BrowserWindow } from 'electron';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ModelStatus, WhisperModelId } from '../shared/ipc';
+import { GpuBackend, ModelStatus, WhisperModelId } from '../shared/ipc';
 import { speechSpec } from './catalog';
+import { detectHardware, forcedBackend } from './hardware';
 import { tMain } from './lang';
 
 const MODEL_FILES = [
@@ -48,28 +49,52 @@ export function isModelDownloaded(model: WhisperModelId): boolean {
 
 /* ── whisper.cpp runtime ───────────────────────────────────── */
 
+// CUDA: the official whisper.cpp release. Vulkan: whisper.cpp ships no Windows
+// Vulkan build, so .github/workflows/whisper-vulkan.yml builds the same
+// version from source and publishes it on this repo as a prerelease.
 const WHISPER_BUILD = 'b5454';
-const WHISPER_ZIP_URL = `https://github.com/ggml-org/whisper.cpp/releases/download/${WHISPER_BUILD}/whisper-bin-win-cuda-12.4.0-x64.zip`;
+const WHISPER_VULKAN_VERSION = 'v1.9.5';
 const CUDA_DLLS = ['cudart64_12.dll', 'cublas64_12.dll', 'cublasLt64_12.dll'];
-// Only what whisper-server needs; the archive ships ~40 other tools.
-const WHISPER_KEEP = ['whisper-server.exe', 'whisper.dll', 'ggml*.dll', ...CUDA_DLLS];
+const WHISPER_RUNTIMES: Record<GpuBackend, { url: string; dir: string[]; required: string[]; members: string[]; root: string }> = {
+  cuda: {
+    url: `https://github.com/ggml-org/whisper.cpp/releases/download/${WHISPER_BUILD}/whisper-bin-win-cuda-12.4.0-x64.zip`,
+    dir: ['bin', 'Release'],
+    required: CUDA_DLLS,
+    // Only what whisper-server needs; the archive ships ~40 other tools.
+    members: ['whisper-server.exe', 'whisper.dll', 'ggml*.dll', ...CUDA_DLLS].map((f) => `Release/${f}`),
+    root: 'Release',
+  },
+  vulkan: {
+    url: `https://github.com/lutfi0/MindScript/releases/download/whisper-vulkan-${WHISPER_VULKAN_VERSION}/whisper-vulkan-${WHISPER_VULKAN_VERSION}-win-x64.zip`,
+    dir: ['vulkan'],
+    required: ['ggml-vulkan.dll'],
+    members: [],
+    root: '',
+  },
+};
 
-function whisperBinDir(): string {
-  return path.join(app.getPath('userData'), 'whispercpp', 'bin', 'Release');
+function whisperBinDir(backend: GpuBackend, root = app.getPath('userData')): string {
+  return path.join(root, 'whispercpp', ...WHISPER_RUNTIMES[backend].dir);
 }
 
-function whisperBinDirCandidates(): string[] {
-  const dirs = [whisperBinDir()];
-  // dev-profile runs use a different userData; fall back to the real one
-  const prod = path.join(app.getPath('appData'), 'mindscript', 'whispercpp', 'bin', 'Release');
-  if (!dirs.includes(prod)) dirs.push(prod);
-  return dirs;
+/** Backends to look for, in order: the forced one only, else CUDA before Vulkan. */
+export function backendOrder(): GpuBackend[] {
+  const forced = forcedBackend();
+  return forced ? [forced] : ['cuda', 'vulkan'];
 }
 
 export function whisperServerExe(): string | null {
-  for (const dir of whisperBinDirCandidates()) {
-    const exe = path.join(dir, 'whisper-server.exe');
-    if (fs.existsSync(exe) && CUDA_DLLS.every((f) => fs.existsSync(path.join(dir, f)))) return exe;
+  for (const backend of backendOrder()) {
+    const dirs = [whisperBinDir(backend)];
+    // dev-profile runs use a different userData; fall back to the real one
+    const prod = whisperBinDir(backend, path.join(app.getPath('appData'), 'mindscript'));
+    if (!dirs.includes(prod)) dirs.push(prod);
+    for (const dir of dirs) {
+      const exe = path.join(dir, 'whisper-server.exe');
+      if (fs.existsSync(exe) && WHISPER_RUNTIMES[backend].required.every((f) => fs.existsSync(path.join(dir, f)))) {
+        return exe;
+      }
+    }
   }
   return null;
 }
@@ -86,22 +111,26 @@ export function unzip(zip: string, dest: string, members: string[] = []): Promis
 }
 
 async function installWhisperRuntime(onProgress: (frac: number) => void): Promise<void> {
+  const backend = (await detectHardware()).backend;
+  if (!backend) throw new Error(tMain('main.noGpuBackend'));
+  const runtime = WHISPER_RUNTIMES[backend];
   const tmp = path.join(app.getPath('userData'), 'whispercpp', 'tmp');
   fs.rmSync(tmp, { recursive: true, force: true });
   fs.mkdirSync(tmp, { recursive: true });
   try {
     const zip = path.join(tmp, 'whisper.zip');
-    await downloadFile(WHISPER_ZIP_URL, zip, onProgress);
+    await downloadFile(runtime.url, zip, onProgress);
     const extracted = path.join(tmp, 'x');
-    await unzip(zip, extracted, WHISPER_KEEP.map((f) => `Release/${f}`));
+    await unzip(zip, extracted, runtime.members);
     fs.rmSync(zip, { force: true });
-    const staged = path.join(extracted, 'Release');
+    const staged = path.join(extracted, runtime.root);
     if (!fs.existsSync(path.join(staged, 'whisper-server.exe'))) {
       throw new Error('whisper-server.exe not found in release archive');
     }
-    fs.rmSync(whisperBinDir(), { recursive: true, force: true });
-    fs.mkdirSync(path.dirname(whisperBinDir()), { recursive: true });
-    fs.renameSync(staged, whisperBinDir());
+    const dest = whisperBinDir(backend);
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.renameSync(staged, dest);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

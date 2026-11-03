@@ -1,16 +1,18 @@
-// Built-in text cleanup: llama.cpp CUDA server lifecycle + GGUF model store.
+// Built-in text cleanup: llama.cpp GPU server lifecycle (CUDA on NVIDIA,
+// Vulkan on AMD/Intel) + GGUF model store.
 // The no-install alternative to Ollama, mirroring whispercpp.ts: a native
 // llama-server.exe is spawned once per model, kept warm on its own port and
 // spoken to through its OpenAI-compatible /v1 API (so polish.ts is shared).
-// The runtime itself (~280 MB zip) is fetched from the official llama.cpp
+// The runtime itself (CUDA ~280 MB, Vulkan ~40 MB zip) is fetched from the official llama.cpp
 // GitHub release the first time a cleanup model is downloaded.
 import { app, BrowserWindow } from 'electron';
 import { ChildProcess, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { CleanupModelId, CleanupStatus } from '../shared/ipc';
+import { CleanupModelId, CleanupStatus, GpuBackend } from '../shared/ipc';
 import { cleanupSpec } from './catalog';
-import { downloadFile, downloadWithMirrors, modelsRoot, unzip } from './models';
+import { detectHardware } from './hardware';
+import { backendOrder, downloadFile, downloadWithMirrors, modelsRoot, unzip } from './models';
 import { tMain } from './lang';
 
 const PORT = 17896;
@@ -21,30 +23,39 @@ const CTX_SIZE = 2048;
 
 const LLAMA_BUILD = 'b12034';
 const RELEASE_BASE = `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_BUILD}`;
-const LLAMA_ZIP = `llama-${LLAMA_BUILD}-bin-win-cuda-12.4-x64.zip`;
+const LLAMA_ZIPS: Record<GpuBackend, string> = {
+  cuda: `llama-${LLAMA_BUILD}-bin-win-cuda-12.4-x64.zip`,
+  vulkan: `llama-${LLAMA_BUILD}-bin-win-vulkan-x64.zip`,
+};
 const CUDART_ZIP = 'cudart-llama-bin-win-cuda-12.4-x64.zip';
 const CUDA_DLLS = ['cudart64_12.dll', 'cublas64_12.dll', 'cublasLt64_12.dll'];
+const REQUIRED: Record<GpuBackend, string[]> = { cuda: CUDA_DLLS, vulkan: ['ggml-vulkan.dll'] };
 // Only what llama-server needs — the release zip also ships ~40 other tools.
 const KEEP = /^(llama-server(-impl)?\.(exe|dll)|llama-common\.dll|llama\.dll|mtmd\.dll|ggml.*\.dll|libomp\.dll|LICENSE.*)$/i;
 
-function binDir(): string {
-  return path.join(app.getPath('userData'), 'llamacpp', 'bin');
+function binDir(backend: GpuBackend, root = app.getPath('userData')): string {
+  // CUDA keeps the original location so existing installs stay valid
+  return path.join(root, 'llamacpp', backend === 'cuda' ? 'bin' : 'vulkan');
 }
 
-function binDirCandidates(): string[] {
-  const dirs = [binDir()];
-  // dev-profile runs use a different userData; fall back to the real one
-  const prod = path.join(app.getPath('appData'), 'mindscript', 'llamacpp', 'bin');
-  if (!dirs.includes(prod)) dirs.push(prod);
-  return dirs;
+function llamaRuntime(): { exe: string; backend: GpuBackend } | null {
+  for (const backend of backendOrder()) {
+    const dirs = [binDir(backend)];
+    // dev-profile runs use a different userData; fall back to the real one
+    const prod = binDir(backend, path.join(app.getPath('appData'), 'mindscript'));
+    if (!dirs.includes(prod)) dirs.push(prod);
+    for (const dir of dirs) {
+      const exe = path.join(dir, 'llama-server.exe');
+      if (fs.existsSync(exe) && REQUIRED[backend].every((f) => fs.existsSync(path.join(dir, f)))) {
+        return { exe, backend };
+      }
+    }
+  }
+  return null;
 }
 
 export function llamaServerExe(): string | null {
-  for (const dir of binDirCandidates()) {
-    const exe = path.join(dir, 'llama-server.exe');
-    if (fs.existsSync(exe) && CUDA_DLLS.every((f) => fs.existsSync(path.join(dir, f)))) return exe;
-  }
-  return null;
+  return llamaRuntime()?.exe ?? null;
 }
 
 export function cleanupModelDir(model: CleanupModelId): string {
@@ -96,11 +107,14 @@ async function installRuntime(onProgress: (frac: number) => void): Promise<void>
   fs.rmSync(tmp, { recursive: true, force: true });
   fs.mkdirSync(tmp, { recursive: true });
   try {
-    const cudaDir = findLocalCudaDlls();
-    const llamaZip = path.join(tmp, LLAMA_ZIP);
+    const backend = (await detectHardware()).backend;
+    if (!backend) throw new Error(tMain('main.noGpuBackend'));
+    const cuda = backend === 'cuda';
+    const cudaDir = cuda ? findLocalCudaDlls() : null;
+    const llamaZip = path.join(tmp, LLAMA_ZIPS[backend]);
     // cudart download (when needed) is the bigger half of the bar
-    const llamaShare = cudaDir ? 1 : 0.42;
-    await downloadFile(`${RELEASE_BASE}/${LLAMA_ZIP}`, llamaZip, (f) => onProgress(f * llamaShare));
+    const llamaShare = !cuda || cudaDir ? 1 : 0.42;
+    await downloadFile(`${RELEASE_BASE}/${LLAMA_ZIPS[backend]}`, llamaZip, (f) => onProgress(f * llamaShare));
     const extracted = path.join(tmp, 'x');
     await unzip(llamaZip, extracted);
     fs.rmSync(llamaZip, { force: true });
@@ -114,7 +128,9 @@ async function installRuntime(onProgress: (frac: number) => void): Promise<void>
       throw new Error('llama-server.exe not found in release archive');
     }
 
-    if (cudaDir) {
+    if (!cuda) {
+      // Vulkan needs no extra runtime: the GPU driver provides vulkan-1.dll
+    } else if (cudaDir) {
       for (const f of CUDA_DLLS) {
         // hard link on the same volume saves ~570 MB; copy otherwise
         try {
@@ -135,8 +151,8 @@ async function installRuntime(onProgress: (frac: number) => void): Promise<void>
       }
     }
 
-    fs.rmSync(binDir(), { recursive: true, force: true });
-    fs.renameSync(staged, binDir());
+    fs.rmSync(binDir(backend), { recursive: true, force: true });
+    fs.renameSync(staged, binDir(backend));
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -217,11 +233,11 @@ export class LlamaCppServer {
 
   /** Spawns (or reuses) the warm server; resolves to its /v1 base URL. */
   async ensureReady(model: CleanupModelId): Promise<string> {
-    const exe = llamaServerExe();
-    if (!exe) throw new Error(tMain('cleanup.noEngine'));
+    const runtime = llamaRuntime();
+    if (!runtime) throw new Error(tMain('cleanup.noEngine'));
     if (!this.isRunningFor(model)) {
       if (!this.starting) {
-        this.starting = this.spawnAndWait(exe, model).finally(() => {
+        this.starting = this.spawnAndWait(runtime.exe, runtime.backend, model).finally(() => {
           this.starting = null;
         });
       }
@@ -241,7 +257,7 @@ export class LlamaCppServer {
     }
   }
 
-  private async spawnAndWait(exe: string, model: CleanupModelId): Promise<void> {
+  private async spawnAndWait(exe: string, backend: GpuBackend, model: CleanupModelId): Promise<void> {
     this.stop();
     const modelPath = cleanupModelPath(model);
     if (!fs.existsSync(modelPath)) throw new Error(`Model file missing: ${modelPath}`);
@@ -257,6 +273,10 @@ export class LlamaCppServer {
       '--cache-ram', '0',
       '--no-webui',
     ];
+    // Vulkan sees integrated GPUs too and would split the model across all of
+    // them (~40% slower here). Keep it on device 0: the Windows Vulkan loader
+    // lists the high-performance GPU first.
+    if (backend === 'vulkan') args.push('-sm', 'none', '-mg', '0');
     const child = spawn(exe, args, {
       cwd: path.dirname(exe),
       windowsHide: true,

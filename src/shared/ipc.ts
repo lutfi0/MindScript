@@ -178,8 +178,13 @@ export interface ModelCatalogEntry {
 }
 
 /** What the onboarding page needs to suggest a first speech model. */
+/** GPU API for the native whisper.cpp / llama.cpp engines. */
+export type GpuBackend = 'cuda' | 'vulkan';
+
 export interface HardwareInfo {
   nvidia: boolean;
+  /** native engine backend for this machine; null = no usable GPU (WebGPU/CPU only) */
+  backend: GpuBackend | null;
   gpuName?: string;
   /** dedicated VRAM in MiB, when known */
   vramMb?: number;

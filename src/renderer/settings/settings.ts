@@ -1,5 +1,7 @@
 import type {
   CleanupStatus,
+  CustomModel,
+  HardwareInfo,
   HistoryEntry,
   ModelCatalogEntry,
   ModelStatus,
@@ -26,6 +28,8 @@ declare global {
       ensureCleanup(model: string): Promise<{ started: boolean }>;
       deleteCleanup(model: string): Promise<{ ok: boolean; message?: string; settings?: Settings }>;
       onCleanupStatus(cb: (status: CleanupStatus) => void): () => void;
+      addCustomModel(kind: CustomModel['kind'], link: string, name: string): Promise<{ ok: boolean; id?: string; message?: string }>;
+      getHardware(): Promise<HardwareInfo>;
       historyList(): Promise<HistoryEntry[]>;
       historyRemove(id: string): Promise<void>;
       historyClear(): Promise<void>;
@@ -161,7 +165,7 @@ async function save(partial: Partial<Settings>, okText?: string): Promise<boolea
 }
 
 /* ── Page routing ──────────────────────────────────────────── */
-const pages = ['genel', 'modeller', 'metin', 'kisayollar', 'davranis', 'gecmis'] as const;
+const pages = ['baslangic', 'genel', 'modeller', 'metin', 'kisayollar', 'davranis', 'gecmis'] as const;
 type Page = (typeof pages)[number];
 
 function showPage(page: Page): void {
@@ -441,9 +445,11 @@ function renderModelList(): void {
   const host = $('modelList');
   host.textContent = '';
   const ids = Object.keys(modelCatalog);
+  const custom = (id: string) => Boolean(modelCatalog[id].custom);
   const groups: [string, (id: string) => boolean][] = [
-    [t('model.groupCuda'), (id) => id.startsWith('ggml-')],
-    [t('model.groupWebgpu'), (id) => !id.startsWith('ggml-')],
+    [t('model.groupCuda'), (id) => !custom(id) && id.startsWith('ggml-')],
+    [t('model.groupWebgpu'), (id) => !custom(id) && !id.startsWith('ggml-')],
+    [t('custom.group'), custom],
   ];
   for (const [label, match] of groups) {
     const groupIds = ids.filter(match);
@@ -470,8 +476,90 @@ function renderStatus(): void {
   $('cancelPill').textContent = settings.cancelKey || 'Escape';
 }
 
+/* ── Onboarding ────────────────────────────────────────────── */
+let hardware: HardwareInfo | null = null;
+let hasWebGpu = false;
+
+const anySpeechModel = (): boolean => Object.values(modelCatalog).some((e) => e.downloaded);
+
+/** A first model that fits this computer — a suggestion, never a requirement. */
+function suggestion(): { id: string; why: string } {
+  if (hardware?.nvidia) {
+    return (hardware.vramMb ?? 8192) >= 4000
+      ? { id: 'ggml-large-v3-turbo-q5', why: t('onb.why.cudaBig') }
+      : { id: 'ggml-small-q5', why: t('onb.why.cudaSmall') };
+  }
+  return { id: 'whisper-base', why: hasWebGpu ? t('onb.why.webgpu') : t('onb.why.cpu') };
+}
+
+function renderOnboarding(): void {
+  $('navStart').classList.toggle('hidden', anySpeechModel());
+  if (!hardware) return;
+  $('onbHw').textContent = hardware.nvidia
+    ? t('onb.hw.nvidia', {
+        name: hardware.gpuName ?? 'NVIDIA',
+        vram: hardware.vramMb ? ` · ${(hardware.vramMb / 1024).toFixed(0)} GB` : '',
+      })
+    : hasWebGpu
+      ? t('onb.hw.webgpu')
+      : t('onb.hw.cpu');
+  const { id, why } = suggestion();
+  const host = $('onbSuggest');
+  host.textContent = '';
+  const entry = modelCatalog[id];
+  if (entry) host.append(modelRow(id, entry, false));
+  $('onbWhy').textContent = why;
+  const ready = Boolean(entry?.downloaded);
+  const busy = rowStatus.has(id);
+  const auto = $('onbAuto') as HTMLButtonElement;
+  auto.textContent = ready ? t('onb.done') : t('onb.auto');
+  auto.disabled = busy;
+}
+
+async function onboardingAuto(): Promise<void> {
+  const { id } = suggestion();
+  if (modelCatalog[id]?.downloaded) {
+    showPage('genel');
+    return;
+  }
+  selectedModel = id;
+  await save({ engine: { ...settings.engine, model: id as WhisperModelId } }, t('toast.activeModel', { model: labelFor(id) }));
+  const res = await window.msSettings.ensureModel(id as WhisperModelId);
+  if (!res.started) toast(t('toast.dlFailed'), true);
+  renderAll();
+}
+
+async function addCustom(kind: CustomModel['kind']): Promise<void> {
+  const prefix = kind === 'speech' ? 'customSpeech' : 'customCleanup';
+  const urlEl = $(`${prefix}Url`) as HTMLInputElement;
+  const nameEl = $(`${prefix}Name`) as HTMLInputElement;
+  const result = $(`${prefix}Result`);
+  const btn = $(`${prefix}Add`) as HTMLButtonElement;
+  btn.disabled = true;
+  result.textContent = t('custom.checking');
+  const res = await window.msSettings.addCustomModel(kind, urlEl.value, nameEl.value);
+  btn.disabled = false;
+  if (!res.ok) {
+    result.textContent = res.message ?? t('toast.dlFailed');
+    return;
+  }
+  result.textContent = '';
+  urlEl.value = '';
+  nameEl.value = '';
+  settings = await window.msSettings.get();
+  if (kind === 'speech') {
+    modelCatalog = await window.msSettings.getModelStates();
+    renderAll();
+  } else {
+    cleanupCatalog = await window.msSettings.getCleanupStates();
+    renderCleanup();
+  }
+  toast(t('custom.added'));
+}
+
 function renderAll(): void {
   renderModelList();
+  renderOnboarding();
   renderStatus();
   renderSummary();
 }
@@ -480,7 +568,16 @@ function renderAll(): void {
 function renderCleanup(): void {
   const host = $('cleanupModelList');
   host.textContent = '';
-  for (const id of Object.keys(cleanupCatalog)) host.append(modelRow(id, cleanupCatalog[id], true, 'cleanup'));
+  const ids = Object.keys(cleanupCatalog);
+  for (const id of ids.filter((i) => !cleanupCatalog[i].custom)) host.append(modelRow(id, cleanupCatalog[id], true, 'cleanup'));
+  const customIds = ids.filter((i) => cleanupCatalog[i].custom);
+  if (customIds.length) {
+    const g = document.createElement('div');
+    g.className = 'model-group';
+    g.textContent = t('custom.group');
+    host.append(g);
+    for (const id of customIds) host.append(modelRow(id, cleanupCatalog[id], true, 'cleanup'));
+  }
 
   const builtin = settings.polish.engine === 'builtin';
   ($('polishEngine2') as HTMLSelectElement).value = settings.polish.engine;
@@ -832,9 +929,21 @@ async function init(): Promise<void> {
     if (e.target === $('infoModal')) $('infoModal').classList.add('hidden');
   });
 
+  $('onbAuto').addEventListener('click', () => void onboardingAuto());
+  $('onbManual').addEventListener('click', () => showPage('modeller'));
+  $('customSpeechAdd').addEventListener('click', () => void addCustom('speech'));
+  $('customCleanupAdd').addEventListener('click', () => void addCustom('cleanup'));
+
   modelCatalog = await window.msSettings.getModelStates();
   cleanupCatalog = await window.msSettings.getCleanupStates();
   applyI18n();
+  // First start (or every model deleted): nothing is downloaded until the
+  // user picks something on the onboarding page.
+  if (!anySpeechModel()) showPage('baslangic');
+  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
+  hasWebGpu = Boolean(gpu && (await gpu.requestAdapter().catch(() => null)));
+  hardware = await window.msSettings.getHardware();
+  renderOnboarding();
 
   window.msSettings.onModelStatus(applyModelStatus);
   window.msSettings.onCleanupStatus(applyCleanupStatus);

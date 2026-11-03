@@ -16,7 +16,7 @@ export type OverlayCommand = { type: 'start' } | { type: 'stop' } | { type: 'can
  * Model weights are downloaded once from HuggingFace into userData/models/
  * and everything afterwards runs fully offline on this machine.
  */
-export type WhisperModelId =
+export type BuiltinWhisperId =
   | 'whisper-tiny'
   | 'whisper-base'
   | 'whisper-small'
@@ -25,13 +25,28 @@ export type WhisperModelId =
   | 'ggml-large-v3-turbo-q5'
   | 'ggml-large-v3-q5'
   | 'ggml-large-v3-turbo-f16'
-  | 'ggml-large-v3-f16'
-  | 'ggml-tr-large-v3-q8';
+  | 'ggml-large-v3-f16';
 
-/** ggml-* models run through the bundled whisper.cpp CUDA server instead of
- *  the transformers.js engine window. */
+/** Suggested catalog entries, or a whisper.cpp model the user added by link. */
+export type WhisperModelId = BuiltinWhisperId | `ggml-custom-${string}`;
+
+/** ggml-* models (custom ones included) run through the bundled whisper.cpp
+ *  CUDA server instead of the transformers.js engine window. */
 export function isGgmlModel(model: string): boolean {
   return model.startsWith('ggml-');
+}
+
+/** A third-party model the user added from a download link. */
+export interface CustomModel {
+  id: string;
+  kind: 'speech' | 'cleanup';
+  label: string;
+  /** direct https download link */
+  url: string;
+  /** file name on disk */
+  file: string;
+  /** bytes, when the server reported it */
+  size?: number;
 }
 
 export interface EngineSettings {
@@ -42,7 +57,8 @@ export interface EngineSettings {
 
 /** Built-in text-cleanup model (GGUF) served by the bundled llama.cpp
  *  CUDA server — the no-install alternative to Ollama. */
-export type CleanupModelId = 'qwen3.5-2b-q4' | 'gemma3-4b-q4';
+export type BuiltinCleanupId = 'qwen3.5-2b-q4' | 'gemma3-4b-q4';
+export type CleanupModelId = BuiltinCleanupId | `gguf-custom-${string}`;
 
 export type PolishEngine = 'builtin' | 'ollama';
 
@@ -80,6 +96,8 @@ export interface Settings {
   liveDrafts: boolean;
   /** UI language: 'auto' follows the OS, otherwise a UiLang code (en/tr/de/fr/es/ru) */
   uiLanguage: string;
+  /** third-party models added from a link (managed through their own IPC) */
+  customModels: CustomModel[];
 }
 
 /** Dictation languages offered in the settings (Whisper language codes). */
@@ -119,7 +137,29 @@ export const DEFAULT_SETTINGS: Settings = {
   launchOnStartup: false,
   liveDrafts: true,
   uiLanguage: 'auto',
+  customModels: [],
 };
+
+/**
+ * Checks a pasted download link for a custom model: https only, a Hugging
+ * Face "blob" page link is turned into its direct "resolve" download, and the
+ * file must be a whisper.cpp .bin (speech) or a .gguf (cleanup).
+ */
+export function parseModelLink(raw: string, kind: CustomModel['kind']): { url: string; file: string } | null {
+  let u: URL;
+  try {
+    u = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'https:') return null;
+  if (/(^|\.)huggingface\.co$/i.test(u.hostname)) u.pathname = u.pathname.replace('/blob/', '/resolve/');
+  const file = decodeURIComponent(u.pathname.split('/').pop() ?? '');
+  const ext = kind === 'speech' ? /\.bin$/i : /\.gguf$/i;
+  if (!ext.test(file) || /[\\/:*?"<>|]/.test(file)) return null;
+  u.hash = '';
+  return { url: u.toString(), file };
+}
 
 export const HISTORY_LIMIT = 500;
 
@@ -133,10 +173,21 @@ export interface ModelCatalogEntry {
   downloaded: boolean;
   /** Bytes on disk when downloaded (filled in by the main process). */
   sizeOnDisk?: number;
+  /** added by the user from a link (download URL in `repo`) */
+  custom?: boolean;
 }
 
+/** What the onboarding page needs to suggest a first speech model. */
+export interface HardwareInfo {
+  nvidia: boolean;
+  gpuName?: string;
+  /** dedicated VRAM in MiB, when known */
+  vramMb?: number;
+}
+
+/** Suggested speech models: third-party models, independent of MindScript. */
 export const WHISPER_MODELS: Record<
-  WhisperModelId,
+  BuiltinWhisperId,
   { label: string; size: string; hint: string; repo: string; file?: string }
 > = {
   'whisper-tiny': {
@@ -146,7 +197,7 @@ export const WHISPER_MODELS: Record<
     repo: 'onnx-community/whisper-tiny',
   },
   'whisper-base': {
-    label: 'Base (recommended)',
+    label: 'Base',
     size: '~85 MB',
     hint: 'Balance of speed and accuracy',
     repo: 'onnx-community/whisper-base',
@@ -158,7 +209,7 @@ export const WHISPER_MODELS: Record<
     repo: 'onnx-community/whisper-small',
   },
   'whisper-large-v3-turbo': {
-    label: 'Large v3 Turbo (best)',
+    label: 'Large v3 Turbo',
     size: '~1.1 GB',
     hint: 'Highest accuracy; ~8x faster than other large models on GPU',
     repo: 'onnx-community/whisper-large-v3-turbo',
@@ -171,14 +222,14 @@ export const WHISPER_MODELS: Record<
     file: 'ggml-small-q5_1.bin',
   },
   'ggml-large-v3-turbo-q5': {
-    label: 'Large v3 Turbo · CUDA (fastest)',
+    label: 'Large v3 Turbo · CUDA',
     size: '~575 MB',
     hint: 'whisper.cpp + NVIDIA CUDA — ~10 s of audio per second; fastest and most accurate',
     repo: 'ggerganov/whisper.cpp',
     file: 'ggml-large-v3-turbo-q5_0.bin',
   },
   'ggml-large-v3-q5': {
-    label: 'Large v3 · CUDA (max. accuracy)',
+    label: 'Large v3 · CUDA',
     size: '~1.1 GB',
     hint: 'whisper.cpp + NVIDIA CUDA — slightly more accurate than Turbo, ~2-3x slower',
     repo: 'ggerganov/whisper.cpp',
@@ -198,36 +249,30 @@ export const WHISPER_MODELS: Record<
     repo: 'ggerganov/whisper.cpp',
     file: 'ggml-large-v3.bin',
   },
-  'ggml-tr-large-v3-q8': {
-    label: 'Turkish Large v3 · CUDA (fine-tuned)',
-    size: '~1.7 GB',
-    hint: 'large-v3 fine-tuned for Turkish (experimental) — most accurate for Turkish speech',
-    repo: 'JoaoZaokk/whisper-large-v3-turkish-general-ggml',
-    file: 'ggml-whisper-large-v3-turkish-general-q8_0.bin',
-  },
 };
 
+/** Suggested cleanup models: third-party models, independent of MindScript. */
 export const CLEANUP_MODELS: Record<
-  CleanupModelId,
+  BuiltinCleanupId,
   { label: string; size: string; hint: string; repo: string; file: string }
 > = {
   'qwen3.5-2b-q4': {
     label: 'Qwen3.5 2B (light)',
     size: '~1.3 GB',
-    hint: 'Fast and light (~1.6 GB VRAM); good punctuation in Turkish and other languages',
+    hint: 'Fast and light (~1.6 GB VRAM); good punctuation in many languages',
     repo: 'unsloth/Qwen3.5-2B-GGUF',
     file: 'Qwen3.5-2B-Q4_K_M.gguf',
   },
   'gemma3-4b-q4': {
     label: 'Gemma 3 4B (quality)',
     size: '~2.5 GB',
-    hint: 'More careful fixes, strongest in Turkish (~3 GB VRAM); a bit slower',
+    hint: 'More careful fixes (~3 GB VRAM); a bit slower',
     repo: 'unsloth/gemma-3-4b-it-GGUF',
     file: 'gemma-3-4b-it-Q4_K_M.gguf',
   },
 };
 
-export function isCleanupModel(id: string): id is CleanupModelId {
+export function isCleanupModel(id: string): id is BuiltinCleanupId {
   return id in CLEANUP_MODELS;
 }
 
@@ -274,6 +319,8 @@ export const Channels = {
   cleanupEnsure: 'cleanup:ensure',
   cleanupDelete: 'cleanup:delete',
   cleanupStatus: 'cleanup:status',
+  modelAddCustom: 'model:add-custom',
+  systemHardware: 'system:hardware',
 } as const;
 
 export interface SaveResult {

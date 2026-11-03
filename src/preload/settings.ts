@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { I18nPayload } from '../shared/i18n';
-import type { CleanupStatus, HistoryEntry, ModelCatalogEntry, ModelStatus, SaveResult, Settings, TestResult, WhisperModelId } from '../shared/ipc';
+import type { CleanupStatus, CustomModel, HardwareInfo, HistoryEntry, ModelCatalogEntry, ModelStatus, SaveResult, Settings, TestResult, WhisperModelId } from '../shared/ipc';
 
 const api = {
   get(): Promise<Settings> {
@@ -28,6 +28,13 @@ const api = {
     const listener = (_e: unknown, status: ModelStatus) => cb(status);
     ipcRenderer.on('model:status', listener);
     return () => ipcRenderer.removeListener('model:status', listener);
+  },
+  /** Adds a third-party model from a download link and starts the download. */
+  addCustomModel(kind: CustomModel['kind'], link: string, name: string): Promise<{ ok: boolean; id?: string; message?: string }> {
+    return ipcRenderer.invoke('model:add-custom', kind, link, name);
+  },
+  getHardware(): Promise<HardwareInfo> {
+    return ipcRenderer.invoke('system:hardware');
   },
   /** Built-in cleanup models (llama.cpp): catalogue, download, delete. */
   getCleanupStates(): Promise<Record<string, ModelCatalogEntry>> {

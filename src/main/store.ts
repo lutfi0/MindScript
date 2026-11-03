@@ -5,6 +5,7 @@ import {
   DEFAULT_SETTINGS,
   HISTORY_LIMIT,
   HOLD_TO_START_OPTIONS,
+  CustomModel,
   HistoryEntry,
   PolishSettings,
   Settings,
@@ -28,13 +29,31 @@ function mergeSection<T extends object>(defaults: T, loaded: unknown): T {
   return { ...defaults, ...(loaded as Partial<T>) };
 }
 
-function loadPolish(defaults: PolishSettings, loaded: unknown): PolishSettings {
+/** Keeps only well-formed custom model records. */
+function loadCustomModels(raw: unknown): CustomModel[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (m): m is CustomModel =>
+      !!m &&
+      typeof m === 'object' &&
+      (m.kind === 'speech' || m.kind === 'cleanup') &&
+      typeof m.id === 'string' &&
+      m.id.startsWith(m.kind === 'speech' ? 'ggml-custom-' : 'gguf-custom-') &&
+      typeof m.label === 'string' &&
+      typeof m.url === 'string' &&
+      typeof m.file === 'string',
+  );
+}
+
+function loadPolish(defaults: PolishSettings, loaded: unknown, customs: CustomModel[]): PolishSettings {
   const p = mergeSection(defaults, loaded);
   const rawEngine = (loaded as Partial<PolishSettings> | undefined)?.engine;
   // Settings from before the built-in engine existed: whoever already had
   // cleanup on was using Ollama, so keep them there.
   if (rawEngine !== 'builtin' && rawEngine !== 'ollama') p.engine = p.enabled ? 'ollama' : 'builtin';
-  if (!isCleanupModel(p.localModel)) p.localModel = defaults.localModel;
+  if (!isCleanupModel(p.localModel) && !customs.some((m) => m.kind === 'cleanup' && m.id === p.localModel)) {
+    p.localModel = defaults.localModel;
+  }
   if (typeof p.idleUnloadMin !== 'number' || p.idleUnloadMin < 0) p.idleUnloadMin = defaults.idleUnloadMin;
   return p;
 }
@@ -51,16 +70,20 @@ export class SettingsStore {
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf8')) as Partial<Settings>;
       const d = DEFAULT_SETTINGS;
-      const models = Object.keys(WHISPER_MODELS) as WhisperModelId[];
+      const customModels = loadCustomModels(raw.customModels);
+      const models: string[] = [
+        ...Object.keys(WHISPER_MODELS),
+        ...customModels.filter((m) => m.kind === 'speech').map((m) => m.id),
+      ];
       const s: Settings = {
         engine: {
           model:
             typeof raw.engine?.model === 'string' && models.includes(raw.engine.model)
-              ? raw.engine.model
+              ? (raw.engine.model as WhisperModelId)
               : d.engine.model,
           language: typeof raw.engine?.language === 'string' ? raw.engine.language : '',
         },
-        polish: loadPolish(d.polish, raw.polish),
+        polish: loadPolish(d.polish, raw.polish, customModels),
         hotkey: typeof raw.hotkey === 'string' && raw.hotkey ? raw.hotkey : d.hotkey,
         holdToStartMs: (HOLD_TO_START_OPTIONS as readonly number[]).includes(raw.holdToStartMs as number)
           ? (raw.holdToStartMs as number)
@@ -71,6 +94,7 @@ export class SettingsStore {
         launchOnStartup: raw.launchOnStartup === true,
         liveDrafts: raw.liveDrafts !== false,
         uiLanguage: typeof raw.uiLanguage === 'string' ? raw.uiLanguage : 'auto',
+        customModels,
       };
       return s;
     } catch {

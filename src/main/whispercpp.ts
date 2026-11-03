@@ -7,7 +7,8 @@ import { app } from 'electron';
 import { ChildProcess, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { WHISPER_MODELS, WhisperModelId } from '../shared/ipc';
+import { WhisperModelId } from '../shared/ipc';
+import { speechSpec } from './catalog';
 import { modelDir, whisperServerExe } from './models';
 
 const PORT = 17895;
@@ -16,7 +17,7 @@ const HEALTH_TIMEOUT_MS = 60_000; // first CUDA init + model mmap can be slow
 export const cppServerExe = whisperServerExe;
 
 export function cppModelPath(model: WhisperModelId): string {
-  const file = WHISPER_MODELS[model].file;
+  const file = speechSpec(model)?.file;
   if (!file) throw new Error(`not a ggml model: ${model}`);
   return path.join(modelDir(model), file);
 }

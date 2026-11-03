@@ -8,7 +8,8 @@ import { app, BrowserWindow } from 'electron';
 import { ChildProcess, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { CLEANUP_MODELS, CleanupModelId, CleanupStatus } from '../shared/ipc';
+import { CleanupModelId, CleanupStatus } from '../shared/ipc';
+import { cleanupSpec } from './catalog';
 import { downloadFile, downloadWithMirrors, modelsRoot, unzip } from './models';
 import { tMain } from './lang';
 
@@ -51,13 +52,13 @@ export function cleanupModelDir(model: CleanupModelId): string {
 }
 
 export function cleanupModelPath(model: CleanupModelId): string {
-  return path.join(cleanupModelDir(model), CLEANUP_MODELS[model].file);
+  return path.join(cleanupModelDir(model), cleanupSpec(model)?.file ?? 'missing.gguf');
 }
 
 export function isCleanupModelDownloaded(model: CleanupModelId): boolean {
   const p = cleanupModelPath(model);
   // partial downloads are written to *.part, so any real file is complete
-  return fs.existsSync(p) && fs.statSync(p).size > 100 * 1024 * 1024;
+  return !!cleanupSpec(model) && fs.existsSync(p) && fs.statSync(p).size > 1024 * 1024;
 }
 
 export function cleanupModelSize(model: CleanupModelId): number {
@@ -165,19 +166,21 @@ export function ensureCleanupModel(model: CleanupModelId): Promise<void> {
         );
       }
       if (!isCleanupModelDownloaded(model)) {
-        const { repo, file } = CLEANUP_MODELS[model];
+        const spec = cleanupSpec(model);
+        if (!spec?.file) throw new Error(`unknown model: ${model}`);
         const dest = cleanupModelPath(model);
         const part = `${dest}.part`;
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         broadcast({ state: 'downloading', model, progress: 0, message: tMain('main.downloading') });
-        await downloadWithMirrors(`${repo}/resolve/main/${file}`, part, (frac) =>
+        const onProgress = (frac: number) =>
           broadcast({
             state: 'downloading',
             model,
             progress: Math.round(frac * 100),
             message: tMain('main.downloading'),
-          }),
-        );
+          });
+        if (spec.url) await downloadFile(spec.url, part, onProgress);
+        else await downloadWithMirrors(`${spec.repo}/resolve/main/${spec.file}`, part, onProgress);
         fs.renameSync(part, dest);
       }
       broadcast({ state: 'ready', model });

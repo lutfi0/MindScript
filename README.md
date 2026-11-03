@@ -23,6 +23,9 @@ and text cleanup both run locally, and your audio never leaves the machine.
   The cleanup model is only allowed to proofread. If its reply adds, drops or
   rewrites content (for example answering a dictated question), the original
   transcript is kept.
+- **Your choice of models.** A short onboarding suggests a speech model that
+  fits your computer; nothing is downloaded until you choose. Add any other
+  whisper.cpp or GGUF model from a download link.
 - **Repetition cleanup.** Whisper's occasional loops ("hello, hello, hello,
   hello") are collapsed before the text is pasted.
 - **Flexible hotkey.** Any key combination, or a single key such as Caps Lock.
@@ -47,14 +50,30 @@ and text cleanup both run locally, and your audio never leaves the machine.
 Download `MindScript Setup <version>.exe` from the
 [Releases page](https://github.com/lutfi0/mindscript/releases) and run it.
 MindScript starts in the system tray and opens its settings window.
+Nothing is downloaded until you choose a model.
 
-1. **Models** page: download a speech model. *Large v3 Turbo · CUDA (fastest)*
-   is recommended on NVIDIA GPUs; *Base* is a light choice for other machines.
-   The dictation language follows Windows on first start; change it at the
-   top of the same page.
+1. **Get started** page: MindScript checks your graphics card and suggests a
+   speech model that fits it. Download the suggestion, or pick another one on
+   the **Models** page. The dictation language follows Windows on first start;
+   change it at the top of the Models page.
 2. Optional, **Text cleanup** page: switch cleanup on, keep the engine on
-   *Built-in (GPU)* and download a cleanup model. The GPU engine (~280 MB) is
-   downloaded together with the first cleanup model.
+   *Built-in (GPU)* and download a cleanup model.
+
+The GPU engines (whisper.cpp for the CUDA speech models, llama.cpp for
+cleanup) are downloaded together with the first model that needs them.
+
+### About the models
+
+The models listed in the app are **suggestions, not requirements**. They are
+made by third parties, are independent of MindScript, and come with their
+own licenses (see below). You can also add any other compatible model from a
+download link, for example from Hugging Face:
+
+- speech: a whisper.cpp **ggml `.bin`** file (runs on NVIDIA GPUs),
+- text cleanup: a **`.gguf`** file.
+
+Open the file on Hugging Face, copy its download link and paste it under
+*Add a model from a link*. Models you add are not checked by MindScript.
 
 ## Usage
 
@@ -147,7 +166,8 @@ pages to ES modules (`tsconfig.renderer.json`); `npm run build` runs both.
 
 ## Third-party components
 
-MindScript downloads or bundles these components, each under its own license:
+MindScript downloads or bundles these components, each under its own license
+(models you add from a link carry their own licenses):
 
 | Component | License |
 |---|---|
@@ -159,7 +179,6 @@ MindScript downloads or bundles these components, each under its own license:
 | llama.cpp | MIT |
 | OpenAI Whisper models (tiny, base, small) | Apache-2.0 |
 | OpenAI Whisper models (large-v3, large-v3-turbo) | MIT |
-| Turkish fine-tuned Whisper large-v3 (turkmedstt, ggml conversion by JoaoZaokk) | Apache-2.0 |
 | Qwen3.5 2B | Apache-2.0 |
 | Gemma 3 4B | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
 | NVIDIA CUDA runtime libraries | NVIDIA CUDA EULA |

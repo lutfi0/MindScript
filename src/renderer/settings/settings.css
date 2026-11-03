@@ -628,3 +628,9 @@ button:disabled { opacity: 0.45; cursor: default; }
 .summary dd { color: var(--text); font-weight: 550; min-width: 0; overflow-wrap: anywhere; }
 .summary .conn { font-weight: 400; }
 #page-modeller .card > .field { margin-bottom: 14px; }
+
+/* ── Custom models and onboarding ─────────────────────────── */
+.custom-add { display: grid; gap: 10px; margin: 18px 0 8px; padding-top: 16px; border-top: 1px solid var(--border); }
+.test-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.onb-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+#page-baslangic .card { display: grid; gap: 12px; }

@@ -6,7 +6,8 @@ import { app, BrowserWindow } from 'electron';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ModelStatus, WHISPER_MODELS, WhisperModelId } from '../shared/ipc';
+import { ModelStatus, WhisperModelId } from '../shared/ipc';
+import { speechSpec } from './catalog';
 import { tMain } from './lang';
 
 const MODEL_FILES = [
@@ -28,14 +29,19 @@ export function modelDir(model: WhisperModelId): string {
 }
 
 function isGgmlFileDownloaded(model: WhisperModelId): boolean {
-  const p = path.join(modelDir(model), WHISPER_MODELS[model].file!);
-  // ggml models are one big .bin — treat partial downloads as missing
-  return fs.existsSync(p) && fs.statSync(p).size > 100 * 1024 * 1024;
+  const spec = speechSpec(model);
+  if (!spec?.file) return false;
+  const p = path.join(modelDir(model), spec.file);
+  // catalog ggml files are written in place, so treat small ones as partial;
+  // custom files go through *.part, so any finished file is complete
+  return fs.existsSync(p) && fs.statSync(p).size > (spec.custom ? 1024 * 1024 : 100 * 1024 * 1024);
 }
 
 /** Ready to use: model files present, plus the whisper.cpp server for ggml models. */
 export function isModelDownloaded(model: WhisperModelId): boolean {
-  if (WHISPER_MODELS[model].file) return isGgmlFileDownloaded(model) && whisperServerExe() !== null;
+  const spec = speechSpec(model);
+  if (!spec) return false;
+  if (spec.file) return isGgmlFileDownloaded(model) && whisperServerExe() !== null;
   const dir = modelDir(model);
   return MODEL_FILES.every((f) => fs.existsSync(path.join(dir, f)));
 }
@@ -216,9 +222,11 @@ export function ensureModelDownloaded(model: WhisperModelId): Promise<void> {
   if (isModelDownloaded(model)) return Promise.resolve();
   if (activeDownload) return activeDownload;
 
-  const repo = WHISPER_MODELS[model].repo;
+  const spec = speechSpec(model);
+  if (!spec) return Promise.reject(new Error(`unknown model: ${model}`));
+  const { repo, url } = spec;
   const dir = modelDir(model);
-  const singleFile = WHISPER_MODELS[model].file;
+  const singleFile = spec.file;
 
   activeDownload = (async () => {
     broadcast({ state: 'downloading', model, progress: 0, message: tMain('main.downloading') });
@@ -237,14 +245,22 @@ export function ensureModelDownloaded(model: WhisperModelId): Promise<void> {
         }
         // ggml model: one big .bin straight from the whisper.cpp HF repo
         if (!isGgmlFileDownloaded(model)) {
-          await downloadWithMirrors(`${repo}/resolve/main/${singleFile}`, path.join(dir, singleFile), (frac) => {
+          const onProgress = (frac: number) =>
             broadcast({
               state: 'downloading',
               model,
               progress: Math.round(frac * 100),
               message: tMain('main.downloading'),
             });
-          });
+          const dest = path.join(dir, singleFile);
+          fs.mkdirSync(dir, { recursive: true });
+          if (url) {
+            // custom model: straight from the user's link, renamed when complete
+            await downloadFile(url, `${dest}.part`, onProgress);
+            fs.renameSync(`${dest}.part`, dest);
+          } else {
+            await downloadWithMirrors(`${repo}/resolve/main/${singleFile}`, dest, onProgress);
+          }
         }
         broadcast({ state: 'loading', model, message: tMain('main.preparing') });
         return;

@@ -5,7 +5,7 @@
 import { app, globalShortcut, ipcMain, clipboard, BrowserWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
-import { CLEANUP_MODELS, Channels, DICTATION_LANGUAGES, HOLD_TO_START_OPTIONS, CleanupModelId, HistoryEntry, ModelStatus, SaveResult, Settings, TestResult, WHISPER_MODELS, WhisperModelId, isCleanupModel, isGgmlModel } from '../shared/ipc';
+import { CustomModel, DEFAULT_SETTINGS, parseModelLink, Channels, DICTATION_LANGUAGES, HOLD_TO_START_OPTIONS, CleanupModelId, HistoryEntry, ModelStatus, SaveResult, Settings, TestResult, WHISPER_MODELS, WhisperModelId, isCleanupModel, isGgmlModel } from '../shared/ipc';
 import { HistoryStore, SettingsStore } from './store';
 import { OverlayController } from './overlay';
 import { MindScriptTray } from './tray';
@@ -14,6 +14,8 @@ import { captureForegroundHwnd, pasteIntoActiveApp } from './paste';
 import { polishText, testPolish } from './polish';
 import { collapseRepeats } from './transcript';
 import { KeyHoldWatcher } from './keyhold';
+import { cleanupIds, cleanupSpec, setCustomModels, speechIds, speechSpec } from './catalog';
+import { detectHardware } from './hardware';
 import {
   LlamaCppServer,
   cleanupModelDir,
@@ -51,6 +53,7 @@ const overlay = new OverlayController();
 const engine = new TranscriptionEngine();
 const llama = new LlamaCppServer();
 let settings = settingsStore.load();
+setCustomModels(settings.customModels);
 let tray: MindScriptTray | null = null;
 let phase: Phase = 'idle';
 let hideTimer: NodeJS.Timeout | null = null;
@@ -233,6 +236,14 @@ function onHotkey(): void {
 let startingWatchdog: NodeJS.Timeout | null = null;
 
 function startDictation(): void {
+  if (!isModelDownloaded(settings.engine.model)) {
+    // nothing to transcribe with yet: point to the onboarding page instead
+    overlay.show(settings.overlayPosition);
+    overlay.sendState({ phase: 'error', message: tMain('main.modelMissing') });
+    scheduleHideOverlay(3200);
+    openSettingsPage('baslangic');
+    return;
+  }
   setPhase('starting');
   incText = '';
   incAtMs = 0;
@@ -298,7 +309,7 @@ async function handleAudio(buf: Buffer, mime: string, durationMs: number): Promi
     });
     scheduleHideOverlay(3200);
     setPhase('idle');
-    openWindow('settings');
+    openSettingsPage('baslangic');
     return;
   }
 
@@ -394,6 +405,7 @@ function applySettings(next: Settings): SaveResult {
   const engineChanged = next.engine.model !== settings.engine.model;
   const prevPolish = settings.polish;
   settings = next;
+  setCustomModels(next.customModels);
   settingsStore.save(next);
   const prevLang = getMainLang();
   if (setMainLang(next.uiLanguage, app.getLocale()) !== prevLang) {
@@ -547,6 +559,8 @@ function registerIpc(): void {
       launchOnStartup: partial.launchOnStartup ?? settings.launchOnStartup,
       liveDrafts: partial.liveDrafts ?? settings.liveDrafts,
       uiLanguage: typeof partial.uiLanguage === 'string' ? partial.uiLanguage : settings.uiLanguage,
+      // custom models change only through model:add-custom / the delete handlers
+      customModels: settings.customModels,
     };
     return applySettings(next);
   });
@@ -557,7 +571,7 @@ function registerIpc(): void {
 
   // Kicks off the one-time local model download; progress arrives via model:status.
   ipcMain.handle(Channels.modelEnsure, (_e, model: Settings['engine']['model']) => {
-    if (!(model in WHISPER_MODELS)) {
+    if (!speechSpec(model)) {
       return { started: false as const };
     }
     void ensureModelDownloaded(model)
@@ -569,10 +583,10 @@ function registerIpc(): void {
   // Model catalogue for the settings UI: metadata + on-disk location + state.
   ipcMain.handle(Channels.modelState, () =>
     Object.fromEntries(
-      (Object.keys(WHISPER_MODELS) as WhisperModelId[]).map((id) => [
+      speechIds().map((id) => [
         id,
         {
-          ...WHISPER_MODELS[id],
+          ...speechSpec(id)!,
           dir: modelDir(id),
           downloaded: isModelDownloaded(id),
           sizeOnDisk: modelDirSize(id),
@@ -585,7 +599,8 @@ function registerIpc(): void {
   // was the active one, falls back to another downloaded model so dictation
   // keeps working.
   ipcMain.handle(Channels.modelDelete, (_e, model: Settings['engine']['model']) => {
-    if (!(model in WHISPER_MODELS)) return { ok: false as const };
+    const spec = speechSpec(model);
+    if (!spec) return { ok: false as const };
     engine.unloadModel(model);
     try {
       deleteModel(model);
@@ -594,23 +609,24 @@ function registerIpc(): void {
       return { ok: false as const, message: tMain('main.deleteFailed', { message }) };
     }
     diag('model-deleted', model);
+    let next = settings;
+    // a deleted custom model leaves the list entirely
+    if (spec.custom) next = { ...next, customModels: next.customModels.filter((m) => m.id !== model) };
     if (settings.engine.model === model) {
-      const ids = Object.keys(WHISPER_MODELS) as WhisperModelId[];
-      const fallback = ids.find((id) => id !== model && isModelDownloaded(id));
-      if (fallback) {
-        applySettings({ ...settings, engine: { ...settings.engine, model: fallback } });
-      }
+      const fallback = speechIds().find((id) => id !== model && isModelDownloaded(id));
+      next = { ...next, engine: { ...next.engine, model: fallback ?? DEFAULT_SETTINGS.engine.model } };
     }
+    if (next !== settings) applySettings(next);
     return { ok: true as const, settings };
   });
 
   // Built-in cleanup models (llama.cpp): catalogue, download, delete.
   ipcMain.handle(Channels.cleanupState, () =>
     Object.fromEntries(
-      (Object.keys(CLEANUP_MODELS) as CleanupModelId[]).map((id) => [
+      cleanupIds().map((id) => [
         id,
         {
-          ...CLEANUP_MODELS[id],
+          ...cleanupSpec(id)!,
           dir: cleanupModelDir(id),
           downloaded: isCleanupModelDownloaded(id) && !!llamaServerExe(),
           sizeOnDisk: cleanupModelSize(id),
@@ -619,8 +635,8 @@ function registerIpc(): void {
     ),
   );
 
-  ipcMain.handle(Channels.cleanupEnsure, (_e, model: string) => {
-    if (!isCleanupModel(model)) return { started: false as const };
+  ipcMain.handle(Channels.cleanupEnsure, (_e, model: CleanupModelId) => {
+    if (!cleanupSpec(model)) return { started: false as const };
     void ensureCleanupModel(model)
       .then(() => {
         if (settings.polish.localModel === model) prewarmCleanup();
@@ -629,8 +645,9 @@ function registerIpc(): void {
     return { started: true as const };
   });
 
-  ipcMain.handle(Channels.cleanupDelete, (_e, model: string) => {
-    if (!isCleanupModel(model)) return { ok: false as const };
+  ipcMain.handle(Channels.cleanupDelete, (_e, model: CleanupModelId) => {
+    const spec = cleanupSpec(model);
+    if (!spec) return { ok: false as const };
     if (llama.isRunningFor(model)) llama.stop();
     try {
       deleteCleanupModel(model);
@@ -639,13 +656,60 @@ function registerIpc(): void {
       return { ok: false as const, message: tMain('main.deleteFailed', { message }) };
     }
     diag('cleanup-model-deleted', model);
+    let next = settings;
+    if (spec.custom) next = { ...next, customModels: next.customModels.filter((m) => m.id !== model) };
     if (settings.polish.localModel === model) {
-      const ids = Object.keys(CLEANUP_MODELS) as CleanupModelId[];
-      const fallback = ids.find((id) => id !== model && isCleanupModelDownloaded(id));
-      if (fallback) applySettings({ ...settings, polish: { ...settings.polish, localModel: fallback } });
+      const fallback = cleanupIds().find((id) => id !== model && isCleanupModelDownloaded(id));
+      next = { ...next, polish: { ...next.polish, localModel: fallback ?? DEFAULT_SETTINGS.polish.localModel } };
     }
+    if (next !== settings) applySettings(next);
     return { ok: true as const, settings };
   });
+
+  // Adds a third-party model from a download link and starts downloading it.
+  ipcMain.handle(
+    Channels.modelAddCustom,
+    async (_e, kind: CustomModel['kind'], link: string, name: string): Promise<{ ok: boolean; id?: string; message?: string }> => {
+      const parsed = parseModelLink(link, kind);
+      if (!parsed) return { ok: false, message: tMain(kind === 'speech' ? 'custom.badLinkSpeech' : 'custom.badLinkCleanup') };
+      if (settings.customModels.some((m) => m.url === parsed.url)) {
+        return { ok: false, message: tMain('custom.exists') };
+      }
+      let size: number | undefined;
+      try {
+        // reachability check; also gives the size to show before downloading
+        const res = await fetch(parsed.url, { method: 'HEAD', redirect: 'follow' });
+        if (!res.ok) return { ok: false, message: tMain('custom.unreachable', { status: res.status }) };
+        size = Number(res.headers.get('content-length')) || undefined;
+      } catch (err) {
+        return { ok: false, message: tMain('custom.unreachable', { status: err instanceof Error ? err.message : String(err) }) };
+      }
+      const slug = parsed.file.replace(/\.(bin|gguf)$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+      const id = `${kind === 'speech' ? 'ggml' : 'gguf'}-custom-${slug}-${randomUUID().slice(0, 6)}`;
+      const entry: CustomModel = {
+        id,
+        kind,
+        label: name.trim().slice(0, 60) || parsed.file,
+        url: parsed.url,
+        file: parsed.file,
+        size,
+      };
+      applySettings({ ...settings, customModels: [...settings.customModels, entry] });
+      diag('custom-model-added', `${kind} ${parsed.url}`);
+      if (kind === 'speech') {
+        void ensureModelDownloaded(id as WhisperModelId)
+          .then(() => engine.warmup(id as WhisperModelId))
+          .catch(() => undefined);
+      } else {
+        void ensureCleanupModel(id as CleanupModelId).catch((err) =>
+          diag('cleanup-download-failed', err instanceof Error ? err.message : String(err)),
+        );
+      }
+      return { ok: true, id };
+    },
+  );
+
+  ipcMain.handle(Channels.systemHardware, () => detectHardware());
 
   ipcMain.handle(Channels.historyList, () => historyStore.list());
   ipcMain.handle(Channels.historyDelete, (_e, id: string) => historyStore.remove(id));

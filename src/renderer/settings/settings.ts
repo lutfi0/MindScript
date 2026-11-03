@@ -147,7 +147,7 @@ function toast(text: string, err = false): void {
   toastTimer = setTimeout(() => el.classList.add('hidden'), 2200);
 }
 
-/** Instant save — the mockup has no Save button, every change applies. */
+/** Instant save — there is no Save button, every change applies. */
 async function save(partial: Partial<Settings>, okText?: string): Promise<boolean> {
   const res = await window.msSettings.save(partial);
   if (res.ok) {

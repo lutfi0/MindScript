@@ -76,7 +76,7 @@ export interface Settings {
   pasteMode: 'clipboard-paste' | 'clipboard-only';
   overlayPosition: 'bottom-center' | 'near-cursor';
   launchOnStartup: boolean;
-  /** show a live draft transcript while speaking (ChatGPT-style) */
+  /** show a live draft transcript while speaking */
   liveDrafts: boolean;
   /** UI language: 'auto' follows the OS, otherwise a UiLang code (en/tr/de/fr/es/ru) */
   uiLanguage: string;

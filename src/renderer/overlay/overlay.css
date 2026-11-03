@@ -108,7 +108,7 @@ html, body {
   text-overflow: ellipsis;
 }
 
-/* Live draft transcript (ChatGPT-style) while still speaking */
+/* Live draft transcript while still speaking */
 .live {
   font-size: 13.5px;
   line-height: 1.4;

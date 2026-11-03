@@ -77,7 +77,9 @@ All audio processing and text cleanup happen on your computer. MindScript
 connects to the internet only to:
 
 - download models from Hugging Face (once per model),
-- download the llama.cpp GPU engine from its official GitHub releases (once),
+- download the whisper.cpp and llama.cpp GPU engines from their official
+  GitHub releases (once each, only when you pick a CUDA or built-in cleanup
+  model),
 - check for app updates on GitHub Releases.
 
 Settings, history and models are stored in `%APPDATA%\mindscript\`.
@@ -149,19 +151,23 @@ MindScript downloads or bundles these components, each under its own license:
 
 | Component | License |
 |---|---|
-| Electron | MIT |
+| Electron (with Chromium's bundled licenses) | MIT |
+| electron-updater | MIT |
 | transformers.js | Apache-2.0 |
 | ONNX Runtime Web | MIT |
 | whisper.cpp | MIT |
 | llama.cpp | MIT |
-| OpenAI Whisper models | MIT |
-| Turkish fine-tuned Whisper (whisper-large-v3-turkish-general-ggml) | Apache-2.0 |
+| OpenAI Whisper models (tiny, base, small) | Apache-2.0 |
+| OpenAI Whisper models (large-v3, large-v3-turbo) | MIT |
+| Turkish fine-tuned Whisper large-v3 (turkmedstt, ggml conversion by JoaoZaokk) | Apache-2.0 |
 | Qwen3.5 2B | Apache-2.0 |
 | Gemma 3 4B | [Gemma Terms of Use](https://ai.google.dev/gemma/terms) |
 | NVIDIA CUDA runtime libraries | NVIDIA CUDA EULA |
 
-Models are downloaded by the user from their original sources; they are not
-redistributed with MindScript.
+Models and the GPU runtimes are downloaded by the user from their original
+sources; they are not redistributed with MindScript. The license texts of the
+bundled libraries ship inside the installed app (`LICENSE.electron.txt`,
+`LICENSES.chromium.html`, `dist/vendor/`).
 
 ## License
 

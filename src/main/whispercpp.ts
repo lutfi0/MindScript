@@ -8,26 +8,12 @@ import { ChildProcess, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { WHISPER_MODELS, WhisperModelId } from '../shared/ipc';
-import { modelDir } from './models';
+import { modelDir, whisperServerExe } from './models';
 
 const PORT = 17895;
 const HEALTH_TIMEOUT_MS = 60_000; // first CUDA init + model mmap can be slow
 
-function binDirCandidates(): string[] {
-  const dirs = [path.join(app.getPath('userData'), 'whispercpp', 'bin', 'Release')];
-  // dev-profile runs use a different userData; fall back to the real one
-  const prod = path.join(app.getPath('appData'), 'mindscript', 'whispercpp', 'bin', 'Release');
-  if (!dirs.includes(prod)) dirs.push(prod);
-  return dirs;
-}
-
-export function cppServerExe(): string | null {
-  for (const dir of binDirCandidates()) {
-    const exe = path.join(dir, 'whisper-server.exe');
-    if (fs.existsSync(exe)) return exe;
-  }
-  return null;
-}
+export const cppServerExe = whisperServerExe;
 
 export function cppModelPath(model: WhisperModelId): string {
   const file = WHISPER_MODELS[model].file;

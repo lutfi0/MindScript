@@ -9,7 +9,7 @@ import { ChildProcess, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { CLEANUP_MODELS, CleanupModelId, CleanupStatus } from '../shared/ipc';
-import { downloadFile, downloadWithMirrors, modelsRoot } from './models';
+import { downloadFile, downloadWithMirrors, modelsRoot, unzip } from './models';
 import { tMain } from './lang';
 
 const PORT = 17896;
@@ -76,17 +76,6 @@ function broadcast(status: CleanupStatus): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('cleanup:status', status);
   }
-}
-
-/** Unpacks a zip with Windows' bundled bsdtar (no extra dependency). */
-function unzip(zip: string, dest: string): Promise<void> {
-  const tar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
-  fs.mkdirSync(dest, { recursive: true });
-  return new Promise((resolve, reject) => {
-    const child = spawn(tar, ['-xf', zip, '-C', dest], { windowsHide: true, stdio: 'ignore' });
-    child.on('error', reject);
-    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`tar exit ${code}`))));
-  });
 }
 
 /** whisper.cpp's CUDA build already ships the same CUDA 12 runtime DLLs —

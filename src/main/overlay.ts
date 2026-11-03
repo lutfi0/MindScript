@@ -111,7 +111,7 @@ export class OverlayController {
     this.deliver((win) => win.webContents.send('overlay:state', state));
   }
 
-  /** Live draft transcript while still recording (ChatGPT-style). */
+  /** Live draft transcript while still recording. */
   sendPartial(text: string): void {
     this.deliver((win) => win.webContents.send('overlay:partial', text));
   }

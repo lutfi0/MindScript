@@ -1,7 +1,9 @@
 // Downloads Whisper model files once from HuggingFace into
 // userData/models/<modelId>/ and reports progress to every open window.
-// After this one-time download MindScript runs fully offline.
+// ggml (CUDA) models also need the whisper.cpp server, fetched once from the
+// official whisper.cpp GitHub release. After that MindScript runs offline.
 import { app, BrowserWindow } from 'electron';
+import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ModelStatus, WHISPER_MODELS, WhisperModelId } from '../shared/ipc';
@@ -25,15 +27,78 @@ export function modelDir(model: WhisperModelId): string {
   return path.join(modelsRoot(), model);
 }
 
+function isGgmlFileDownloaded(model: WhisperModelId): boolean {
+  const p = path.join(modelDir(model), WHISPER_MODELS[model].file!);
+  // ggml models are one big .bin — treat partial downloads as missing
+  return fs.existsSync(p) && fs.statSync(p).size > 100 * 1024 * 1024;
+}
+
+/** Ready to use: model files present, plus the whisper.cpp server for ggml models. */
 export function isModelDownloaded(model: WhisperModelId): boolean {
+  if (WHISPER_MODELS[model].file) return isGgmlFileDownloaded(model) && whisperServerExe() !== null;
   const dir = modelDir(model);
-  const single = WHISPER_MODELS[model].file;
-  if (single) {
-    const p = path.join(dir, single);
-    // ggml models are one big .bin — treat partial downloads as missing
-    return fs.existsSync(p) && fs.statSync(p).size > 100 * 1024 * 1024;
-  }
   return MODEL_FILES.every((f) => fs.existsSync(path.join(dir, f)));
+}
+
+/* ── whisper.cpp runtime ───────────────────────────────────── */
+
+const WHISPER_BUILD = 'b5454';
+const WHISPER_ZIP_URL = `https://github.com/ggml-org/whisper.cpp/releases/download/${WHISPER_BUILD}/whisper-bin-win-cuda-12.4.0-x64.zip`;
+const CUDA_DLLS = ['cudart64_12.dll', 'cublas64_12.dll', 'cublasLt64_12.dll'];
+// Only what whisper-server needs; the archive ships ~40 other tools.
+const WHISPER_KEEP = ['whisper-server.exe', 'whisper.dll', 'ggml*.dll', ...CUDA_DLLS];
+
+function whisperBinDir(): string {
+  return path.join(app.getPath('userData'), 'whispercpp', 'bin', 'Release');
+}
+
+function whisperBinDirCandidates(): string[] {
+  const dirs = [whisperBinDir()];
+  // dev-profile runs use a different userData; fall back to the real one
+  const prod = path.join(app.getPath('appData'), 'mindscript', 'whispercpp', 'bin', 'Release');
+  if (!dirs.includes(prod)) dirs.push(prod);
+  return dirs;
+}
+
+export function whisperServerExe(): string | null {
+  for (const dir of whisperBinDirCandidates()) {
+    const exe = path.join(dir, 'whisper-server.exe');
+    if (fs.existsSync(exe) && CUDA_DLLS.every((f) => fs.existsSync(path.join(dir, f)))) return exe;
+  }
+  return null;
+}
+
+/** Unpacks a zip (optionally only the given members) with Windows' bundled bsdtar. */
+export function unzip(zip: string, dest: string, members: string[] = []): Promise<void> {
+  const tar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+  fs.mkdirSync(dest, { recursive: true });
+  return new Promise((resolve, reject) => {
+    const child = spawn(tar, ['-xf', zip, '-C', dest, ...members], { windowsHide: true, stdio: 'ignore' });
+    child.on('error', reject);
+    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`tar exit ${code}`))));
+  });
+}
+
+async function installWhisperRuntime(onProgress: (frac: number) => void): Promise<void> {
+  const tmp = path.join(app.getPath('userData'), 'whispercpp', 'tmp');
+  fs.rmSync(tmp, { recursive: true, force: true });
+  fs.mkdirSync(tmp, { recursive: true });
+  try {
+    const zip = path.join(tmp, 'whisper.zip');
+    await downloadFile(WHISPER_ZIP_URL, zip, onProgress);
+    const extracted = path.join(tmp, 'x');
+    await unzip(zip, extracted, WHISPER_KEEP.map((f) => `Release/${f}`));
+    fs.rmSync(zip, { force: true });
+    const staged = path.join(extracted, 'Release');
+    if (!fs.existsSync(path.join(staged, 'whisper-server.exe'))) {
+      throw new Error('whisper-server.exe not found in release archive');
+    }
+    fs.rmSync(whisperBinDir(), { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(whisperBinDir()), { recursive: true });
+    fs.renameSync(staged, whisperBinDir());
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 /** Total size of a model directory in bytes (0 when missing). */
@@ -159,15 +224,28 @@ export function ensureModelDownloaded(model: WhisperModelId): Promise<void> {
     broadcast({ state: 'downloading', model, progress: 0, message: tMain('main.downloading') });
     try {
       if (singleFile) {
+        if (!whisperServerExe()) {
+          broadcast({ state: 'downloading', model, progress: 0, message: tMain('cleanup.dlEngine') });
+          await installWhisperRuntime((frac) =>
+            broadcast({
+              state: 'downloading',
+              model,
+              progress: Math.round(frac * 100),
+              message: tMain('cleanup.dlEngine'),
+            }),
+          );
+        }
         // ggml model: one big .bin straight from the whisper.cpp HF repo
-        await downloadWithMirrors(`${repo}/resolve/main/${singleFile}`, path.join(dir, singleFile), (frac) => {
-          broadcast({
-            state: 'downloading',
-            model,
-            progress: Math.round(frac * 100),
-            message: tMain('main.downloading'),
+        if (!isGgmlFileDownloaded(model)) {
+          await downloadWithMirrors(`${repo}/resolve/main/${singleFile}`, path.join(dir, singleFile), (frac) => {
+            broadcast({
+              state: 'downloading',
+              model,
+              progress: Math.round(frac * 100),
+              message: tMain('main.downloading'),
+            });
           });
-        });
+        }
         broadcast({ state: 'loading', model, message: tMain('main.preparing') });
         return;
       }

@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' msres:; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' msres: file: http://127.0.0.1:*; worker-src 'self' blob:; img-src 'self' data:" />
+  <title>MindScript Engine</title>
+</head>
+<body>
+  <!-- engine.js is an ES module; transformers v4 ships ESM-only and is
+       dynamically imported from dist/vendor/ -->
+  <script type="module" src="engine.js"></script>
+</body>
+</html>

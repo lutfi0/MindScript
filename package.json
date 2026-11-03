@@ -1,0 +1,62 @@
+{
+  "name": "mindscript",
+  "productName": "MindScript",
+  "version": "0.1.0",
+  "description": "Talk, and MindScript types. Fully local voice dictation for Windows with GPU speech recognition and optional AI text cleanup.",
+  "main": "dist/main/main.js",
+  "author": "lutfi0",
+  "homepage": "https://github.com/lutfi0/mindscript",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lutfi0/mindscript.git"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "gen:icons": "node scripts/gen-icons.mjs",
+    "build": "tsc -p tsconfig.renderer.json && tsc -p tsconfig.json && node scripts/copy-assets.mjs",
+    "watch": "tsc -p tsconfig.json --watch",
+    "start": "npm run build && electron .",
+    "smoke": "npm run build && electron . --smoke",
+    "dist": "npm run build && node scripts/dist.mjs"
+  },
+  "devDependencies": {
+    "@huggingface/transformers": "^4.3.2",
+    "@types/node": "^26.6.6",
+    "electron": "^45.2.1",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.9.3"
+  },
+  "build": {
+    "appId": "com.mindscript.app",
+    "productName": "MindScript",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "app": ".",
+      "output": "release"
+    },
+    "asar": false,
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "lutfi0",
+        "repo": "mindscript",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  }
+}

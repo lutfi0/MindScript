@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+  <title>MindScript — Settings</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <header class="titlebar" id="titlebar">
+    <div class="titlebar-side"></div>
+    <div class="titlebar-drag"></div>
+    <div class="win-controls">
+      <button class="win-btn" id="winMin" type="button" data-i18n-title="win.minimize" title="Minimize" aria-label="Minimize">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5.5h10" /></svg>
+      </button>
+      <button class="win-btn" id="winMax" type="button" data-i18n-title="win.maximize" title="Maximize" aria-label="Maximize">
+        <svg class="ico-max" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" rx="1" /></svg>
+        <svg class="ico-restore" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="2.5" width="7" height="7" rx="1" /><path d="M2.5 2.5V1.5a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1" /></svg>
+      </button>
+      <button class="win-btn close" id="winClose" type="button" data-i18n-title="win.close" title="Close" aria-label="Close">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0.5 0.5l9 9M9.5 0.5l-9 9" /></svg>
+      </button>
+    </div>
+  </header>
+  <aside>
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <rect x="3" y="9" width="3" height="6" rx="1.5"/>
+        <rect x="8.2" y="4" width="3" height="16" rx="1.5"/>
+        <rect x="13.4" y="8" width="3" height="8" rx="1.5"/>
+        <rect x="18.6" y="6" width="3" height="12" rx="1.5"/>
+      </svg>
+      <div>
+        <div class="brand-name">MindScript</div>
+        <div class="brand-status"><span class="dot ok" id="brandDot"></span><span id="brandStatus"></span></div>
+      </div>
+    </div>
+    <nav id="nav">
+      <button data-page="genel" class="active" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span data-i18n="nav.general">General</span>
+      </button>
+      <button data-page="modeller" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>
+        <span data-i18n="nav.models">Models</span>
+      </button>
+      <button data-page="metin" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+        <span data-i18n="nav.polish">Text cleanup</span>
+      </button>
+      <button data-page="kisayollar" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M18 14h.01M9 14h6"/></svg>
+        <span data-i18n="nav.shortcuts">Shortcuts</span>
+      </button>
+      <button data-page="davranis" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span data-i18n="nav.behavior">Behavior</span>
+      </button>
+      <button data-page="gecmis" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <span data-i18n="nav.history">History</span>
+      </button>
+    </nav>
+    <div class="sidebar-foot muted" data-i18n="sidebar.foot">Runs entirely on this device — no cloud.</div>
+  </aside>
+
+  <main>
+    <!-- ═══ GENERAL ═══ -->
+    <section class="page" id="page-genel">
+      <h1 data-i18n="general.title">General</h1>
+      <p class="subtitle" data-i18n="general.sub">Manage your dictation experience and the local model.</p>
+
+      <div class="strip">
+        <div class="strip-cell">
+          <span class="dot ok big" id="readyDot"></span>
+          <div>
+            <div class="strip-title" id="readyTitle"></div>
+            <div class="strip-sub" id="readySub"></div>
+          </div>
+        </div>
+        <div class="strip-cell">
+          <div>
+            <div class="strip-label" data-i18n="strip.hotkeyLabel">Activation hotkey</div>
+            <button class="pill" id="hotkeyPill" type="button"></button>
+          </div>
+        </div>
+        <div class="strip-cell wave" aria-hidden="true">
+          <svg viewBox="0 0 120 40" fill="currentColor">
+            <rect x="2"  y="16" width="4" height="8"  rx="2"/>
+            <rect x="10" y="12" width="4" height="16" rx="2"/>
+            <rect x="18" y="18" width="4" height="4"  rx="2"/>
+            <rect x="26" y="8"  width="4" height="24" rx="2"/>
+            <rect x="34" y="14" width="4" height="12" rx="2"/>
+            <rect x="42" y="4"  width="4" height="32" rx="2"/>
+            <rect x="50" y="10" width="4" height="20" rx="2"/>
+            <rect x="58" y="16" width="4" height="8"  rx="2"/>
+            <rect x="66" y="6"  width="4" height="28" rx="2"/>
+            <rect x="74" y="12" width="4" height="16" rx="2"/>
+            <rect x="82" y="18" width="4" height="4"  rx="2"/>
+            <rect x="90" y="10" width="4" height="20" rx="2"/>
+            <rect x="98" y="15" width="4" height="10" rx="2"/>
+            <rect x="106" y="17" width="4" height="6" rx="2"/>
+            <rect x="114" y="18" width="4" height="4" rx="2"/>
+          </svg>
+        </div>
+        <div class="strip-cell">
+          <svg class="shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          <div>
+            <div class="strip-title" data-i18n="strip.local">Fully local</div>
+            <div class="strip-sub" data-i18n="strip.localSub">Your data stays on this device.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div class="card">
+          <h2 data-i18n="model.title">Speech model</h2>
+          <p class="card-sub" data-i18n="model.sub">Choose the local model that turns speech into text.</p>
+          <dl class="summary">
+            <dt data-i18n="summary.model">Model</dt><dd id="sumModel"></dd>
+            <dt data-i18n="model.info.engine">Engine</dt><dd id="sumEngine"></dd>
+            <dt data-i18n="model.language">Language</dt><dd id="sumLang"></dd>
+          </dl>
+          <button class="linklike" type="button" data-goto="modeller"><span data-i18n="shortcuts.edit">Edit</span> <span class="arrow">→</span></button>
+        </div>
+
+        <div class="col-stack">
+          <div class="card">
+            <h2 data-i18n="polish.title">Text cleanup</h2>
+            <p class="card-sub" data-i18n="polish.sub">Fix punctuation, capitalization and typos with a local AI model.</p>
+            <div class="switch-row">
+              <label class="switch"><input type="checkbox" id="polishEnabled" /><span class="track"></span></label>
+              <div>
+                <div class="switch-title" data-i18n="polish.toggle">Clean up text automatically</div>
+                <div class="strip-sub" data-i18n="polish.toggleSub">Automatically fixes the text after dictation.</div>
+              </div>
+            </div>
+            <dl class="summary">
+              <dt data-i18n="cleanup.engine">Engine</dt><dd id="sumCleanupEngine"></dd>
+              <dt data-i18n="summary.model">Model</dt><dd id="sumCleanupModel"></dd>
+              <dt data-i18n="model.info.status">Status</dt><dd><span class="conn" id="polishConn"><span class="dot" id="polishDot"></span><span id="polishConnText">—</span></span></dd>
+            </dl>
+            <button class="linklike" type="button" data-goto="metin"><span data-i18n="shortcuts.edit">Edit</span> <span class="arrow">→</span></button>
+          </div>
+
+          <div class="card">
+            <h2 data-i18n="behavior.title">Dictation behavior</h2>
+            <p class="card-sub" data-i18n="behavior.sub">Control how text is inserted and where the bar appears.</p>
+            <div class="switch-row">
+              <label class="switch"><input type="checkbox" id="liveDrafts" /><span class="track"></span></label>
+              <div>
+                <div class="switch-title" data-i18n="behavior.live">Live draft</div>
+                <div class="strip-sub" data-i18n="behavior.liveSub">Show draft text live while speaking (ChatGPT-style).</div>
+              </div>
+            </div>
+            <div class="switch-row">
+              <label class="switch"><input type="checkbox" id="launchOnStartup1" /><span class="track"></span></label>
+              <div>
+                <div class="switch-title" data-i18n="behavior.startup">Launch at Windows startup</div>
+                <div class="strip-sub" data-i18n="behavior.startupSub">MindScript waits in the tray when you sign in.</div>
+              </div>
+            </div>
+            <dl class="summary">
+              <dt data-i18n="behavior.paste">Text insertion</dt><dd id="sumPaste"></dd>
+              <dt data-i18n="behavior.overlayPos">Recording bar position</dt><dd id="sumOverlay"></dd>
+              <dt data-i18n="behavior.uiLang">App language</dt><dd id="sumUiLang"></dd>
+            </dl>
+            <button class="linklike" type="button" data-goto="davranis"><span data-i18n="shortcuts.edit">Edit</span> <span class="arrow">→</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shortcuts">
+        <div class="shortcuts-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M18 14h.01M9 14h6"/></svg>
+          <div>
+            <h2 data-i18n="shortcuts.title">Shortcuts</h2>
+            <p class="card-sub" data-i18n="shortcuts.sub">Set the keys that start and cancel dictation.</p>
+          </div>
+          <button class="secondary" id="gotoHotkeys" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+            <span data-i18n="shortcuts.edit">Edit</span>
+          </button>
+        </div>
+        <div class="shortcuts-body">
+          <div class="field inline">
+            <label data-i18n="shortcuts.dictate">Dictation</label>
+            <button class="pill" id="hotkeyPill2" type="button"></button>
+          </div>
+          <div class="field inline">
+            <label data-i18n="shortcuts.cancel">Cancel</label>
+            <button class="pill" id="cancelPill" type="button"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ MODELS ═══ -->
+    <section class="page hidden" id="page-modeller">
+      <h1 data-i18n="models.title">Models</h1>
+      <p class="subtitle" data-i18n="models.sub">Download, select or permanently delete local speech models.</p>
+      <div class="card">
+        <div class="field">
+            <label for="language" data-i18n="model.language">Language</label>
+            <select id="language">
+              <option value="tr">Türkçe</option>
+              <option value="en">English</option>
+              <option value="de">Deutsch</option>
+              <option value="fr">Français</option>
+              <option value="es">Español</option>
+              <option value="it">Italiano</option>
+              <option value="ru">Русский</option>
+              <option value="ar">العربية</option>
+              <option value="" data-i18n="model.langUnset">Not set (defaults to English)</option>
+            </select>
+          </div>
+        <div id="modelList" class="model-list"></div>
+        <p class="muted small foot-note" data-i18n="models.foot">Models are downloaded once from Hugging Face and stored on this computer; no internet needed afterwards.</p>
+      </div>
+    </section>
+
+    <!-- ═══ TEXT CLEANUP ═══ -->
+    <section class="page hidden" id="page-metin">
+      <h1 data-i18n="polish.title">Text cleanup</h1>
+      <p class="subtitle" data-i18n="polish.sub">Fix punctuation, capitalization and typos with a local AI model.</p>
+      <div class="card">
+        <div class="switch-row">
+          <label class="switch"><input type="checkbox" id="polishEnabled2" /><span class="track"></span></label>
+          <div>
+            <div class="switch-title" data-i18n="polish.toggle">Clean up text automatically</div>
+            <div class="strip-sub" data-i18n="polish.toggleSub">Automatically fixes the text after dictation.</div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="polishEngine2" data-i18n="cleanup.engine">Engine</label>
+          <select id="polishEngine2">
+            <option value="builtin" data-i18n="cleanup.engine.builtin">Built-in (GPU) — no install</option>
+                <option value="ollama" data-i18n="cleanup.engine.ollama">Ollama (separate install)</option>
+          </select>
+        </div>
+        <div id="builtinBox2">
+          <div class="model-group" data-i18n="cleanup.models">Cleanup model</div>
+          <div id="cleanupModelList" class="model-list"></div>
+          <div class="field">
+            <label for="idleUnload" data-i18n="cleanup.idle">Free GPU memory when idle</label>
+            <select id="idleUnload">
+              <option value="5" data-i18n="cleanup.idle.5">After 5 minutes</option>
+              <option value="10" data-i18n="cleanup.idle.10">After 10 minutes</option>
+              <option value="30" data-i18n="cleanup.idle.30">After 30 minutes</option>
+              <option value="0" data-i18n="cleanup.idle.never">Never (always ready)</option>
+            </select>
+          </div>
+          <p class="muted small foot-note" data-i18n="cleanup.foot">Runs on your NVIDIA GPU with llama.cpp. The engine and model are downloaded once; text never leaves this device. The model only fixes punctuation, capitalization and typos — if it tries to change anything else, the original text is kept.</p>
+        </div>
+        <div id="ollamaBox2">
+          <div class="field">
+            <label for="polishUrl2" data-i18n="polish.url">Ollama address</label>
+            <input type="text" id="polishUrl2" placeholder="http://127.0.0.1:11434/v1" />
+          </div>
+          <div class="field">
+            <label for="polishModel2" data-i18n="polish.model">Ollama model</label>
+            <input type="text" id="polishModel2" placeholder="llama3.2" />
+          </div>
+          <div class="field">
+            <button class="secondary" id="testPolish2" type="button" data-i18n="polish.test">Test connection</button>
+            <span class="muted small" id="testPolishResult2"></span>
+          </div>
+          <p class="muted small foot-note" data-i18n="polish.foot">Ollama is a local server running on this machine; text never leaves the device.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SHORTCUTS ═══ -->
+    <section class="page hidden" id="page-kisayollar">
+      <h1 data-i18n="shortcuts.title">Shortcuts</h1>
+      <p class="subtitle" data-i18n="shortcuts.sub">Set the keys that start and cancel dictation.</p>
+      <div class="card">
+        <div class="field">
+          <label for="hotkey" data-i18n="shortcuts.dictateKey">Dictation hotkey</label>
+          <input type="text" id="hotkey" class="hotkey-input" readonly data-i18n-ph="shortcuts.capture" placeholder="Click, then press the keys" />
+        </div>
+        <div class="field">
+          <label for="holdToStart" data-i18n="shortcuts.hold">Start dictation</label>
+          <select id="holdToStart">
+            <option value="0" data-i18n="shortcuts.hold.0">Press (toggles on and off)</option>
+            <option value="500" data-i18n="shortcuts.hold.500">Hold 0.5 s</option>
+            <option value="1000" data-i18n="shortcuts.hold.1000">Hold 1 s</option>
+            <option value="1500" data-i18n="shortcuts.hold.1500">Hold 1.5 s</option>
+            <option value="2000" data-i18n="shortcuts.hold.2000">Hold 2 s</option>
+          </select>
+        </div>
+        <p class="muted small foot-note" data-i18n="shortcuts.holdHint"></p>
+        <div class="field">
+          <label for="cancelKey" data-i18n="shortcuts.cancelKey">Cancel key</label>
+          <input type="text" id="cancelKey" class="hotkey-input" readonly data-i18n-ph="shortcuts.capture" placeholder="Click, then press the keys" />
+        </div>
+        <p class="muted small foot-note" data-i18n="shortcuts.foot">Click a box and press the combo you want.</p>
+      </div>
+    </section>
+
+    <!-- ═══ BEHAVIOR ═══ -->
+    <section class="page hidden" id="page-davranis">
+      <h1 data-i18n="behavior.title">Dictation behavior</h1>
+      <p class="subtitle" data-i18n="behavior.sub">Control how text is inserted and where the bar appears.</p>
+      <div class="card">
+        <div class="field">
+          <label for="uiLang" data-i18n="behavior.uiLang">App language</label>
+          <select id="uiLang"></select>
+        </div>
+        <div class="switch-row">
+          <label class="switch"><input type="checkbox" id="liveDrafts2" /><span class="track"></span></label>
+          <div>
+            <div class="switch-title" data-i18n="behavior.live">Live draft</div>
+            <div class="strip-sub" data-i18n="behavior.liveSub">Show draft text live while speaking (ChatGPT-style).</div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="pasteMode2" data-i18n="behavior.paste">Text insertion</label>
+          <select id="pasteMode2">
+            <option value="clipboard-paste" data-i18n="behavior.paste.auto">Auto-paste (simulates Ctrl+V)</option>
+            <option value="clipboard-only" data-i18n="behavior.paste.clipboard">Copy to clipboard only</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="overlayPosition2" data-i18n="behavior.overlayPos">Recording bar position</label>
+          <select id="overlayPosition2">
+            <option value="bottom-center" data-i18n="behavior.overlayPos.center">Bottom of screen · Center</option>
+            <option value="near-cursor" data-i18n="behavior.overlayPos.cursor">Bottom of the screen with the cursor</option>
+          </select>
+        </div>
+        <div class="switch-row">
+          <label class="switch"><input type="checkbox" id="launchOnStartup" /><span class="track"></span></label>
+          <div>
+            <div class="switch-title" data-i18n="behavior.startup">Launch at Windows startup</div>
+            <div class="strip-sub" data-i18n="behavior.startupSub">MindScript waits in the tray when you sign in.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ HISTORY ═══ -->
+    <section class="page hidden" id="page-gecmis">
+      <div class="page-head-row">
+        <div>
+          <h1 data-i18n="history.title">History</h1>
+          <p class="subtitle" data-i18n="history.sub">Dictated text is stored on this device.</p>
+        </div>
+        <button class="secondary" id="clearHistory" type="button" data-i18n="history.clearAll">Clear all</button>
+      </div>
+      <input type="text" id="historySearch" class="search" data-i18n-ph="history.search" placeholder="Search history…" />
+      <div id="historyList" class="history-list"></div>
+      <p class="muted small hidden" id="historyEmpty" data-i18n="history.empty">No entries.</p>
+    </section>
+  </main>
+
+  <div id="menuPopup" class="popup hidden"></div>
+
+  <div id="infoModal" class="modal-veil hidden">
+    <div class="modal">
+      <h3 id="infoTitle"></h3>
+      <dl id="infoBody"></dl>
+      <button class="primary" id="infoClose" type="button" data-i18n="model.info.close">Close</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script type="module" src="settings.js"></script>
+</body>
+</html>

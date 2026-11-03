@@ -1,0 +1,130 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --pill-bg: rgba(16, 16, 16, 0.94);
+  --pill-border: rgba(255, 255, 255, 0.14);
+  --pill-shadow: rgba(0, 0, 0, 0.5);
+  --fg: #f4f4f5;
+  --fg-2: #d4d4d8;
+  --muted: #a1a1aa;
+  --faint: #7a7a82;
+  --idle: #52525b;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --pill-bg: rgba(255, 255, 255, 0.96);
+    --pill-border: rgba(0, 0, 0, 0.12);
+    --pill-shadow: rgba(0, 0, 0, 0.18);
+    --fg: #18181b;
+    --fg-2: #3f3f46;
+    --muted: #52525b;
+    --faint: #8a8a92;
+    --idle: #c9c9cf;
+  }
+}
+
+html, body {
+  background: transparent;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+  user-select: none;
+  height: 100vh;
+}
+
+/* Monochrome recording bar: one colour family, state shown by the dot and its pulse */
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 14px;
+  padding: 14px 18px;
+  height: calc(100vh - 28px);
+  border-radius: 18px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  box-shadow: 0 16px 48px var(--pill-shadow);
+  color: var(--fg);
+}
+
+.dot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--idle);
+  transition: background 0.15s ease;
+}
+
+.pill[data-phase="recording"] .dot {
+  background: var(--fg);
+  animation: pulse 1.1s ease-in-out infinite;
+}
+.pill[data-phase="transcribing"] .dot {
+  background: var(--muted);
+  animation: pulse 0.7s ease-in-out infinite;
+}
+.pill[data-phase="done"] .dot { background: var(--fg); }
+.pill[data-phase="error"] .dot {
+  background: transparent;
+  border: 2px solid var(--fg);
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.72); opacity: 0.55; }
+}
+
+.middle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 140px;
+}
+
+#wave { display: block; }
+
+.timer {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Live draft transcript (ChatGPT-style) while still speaking */
+.live {
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--fg-2);
+  max-height: 58px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

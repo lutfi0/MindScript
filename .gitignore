@@ -1,0 +1,51 @@
+# Dependencies and build output
+node_modules/
+dist/
+release/
+*.tsbuildinfo
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment and local config
+.env
+.env.*
+.claude/settings.local.json
+
+# Signing material and local signing helpers must never be committed
+cert/
+*.pfx
+*.p12
+*.pem
+*.key
+*.cer
+password.txt
+scripts/*-cert.ps1
+
+# Downloaded models and runtimes (fetched at run time, never committed)
+*.gguf
+*.onnx
+models/
+whispercpp/
+llamacpp/
+
+# Test audio and scratch files
+*.wav
+*.tmp
+*.part
+
+# Private notes and the old parallel prototype
+docs/
+app/
+
+# Editors and OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Stray tool output
+NVIDIA Corporation/

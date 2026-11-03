@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <title>MindScript</title>
+  <link rel="stylesheet" href="overlay.css" />
+</head>
+<body>
+  <div id="pill" class="pill" data-phase="idle">
+    <div class="status">
+      <span id="dot" class="dot"></span>
+    </div>
+    <div class="middle">
+      <canvas id="wave" width="132" height="52"></canvas>
+      <div id="timer" class="timer">0:00</div>
+    </div>
+    <div class="side">
+      <div id="title" class="title">Listening…</div>
+      <div id="live" class="live"></div>
+      <div id="hint" class="hint">Press again: finish &nbsp;•&nbsp; Esc: cancel</div>
+    </div>
+  </div>
+  <script type="module" src="overlay.js"></script>
+</body>
+</html>

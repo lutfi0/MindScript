@@ -39,6 +39,7 @@
     "files": [
       "dist/**/*",
       "assets/**/*",
+      "!assets/readme/**",
       "package.json"
     ],
     "win": {

@@ -27,9 +27,11 @@ walk(SRC);
 console.log(`copied ${count} renderer assets to dist/renderer`);
 
 // Renderer pages reference assets via relative paths (../../assets/...).
+// Subfolders (assets/readme: README images) are not app assets.
 fs.mkdirSync(path.join(ROOT, 'dist', 'assets'), { recursive: true });
-for (const asset of fs.readdirSync(path.join(ROOT, 'assets'))) {
-  fs.copyFileSync(path.join(ROOT, 'assets', asset), path.join(ROOT, 'dist', 'assets', asset));
+for (const asset of fs.readdirSync(path.join(ROOT, 'assets'), { withFileTypes: true })) {
+  if (!asset.isFile()) continue;
+  fs.copyFileSync(path.join(ROOT, 'assets', asset.name), path.join(ROOT, 'dist', 'assets', asset.name));
 }
 console.log('copied assets/ into dist/assets');
 

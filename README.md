@@ -1,9 +1,17 @@
 # MindScript
 
+<p align="center">
+  <img src="assets/readme/mindscript-hero.png" alt="MindScript — private local voice dictation for Windows" width="100%" />
+</p>
+
 **Talk, and MindScript types.** A voice dictation app for Windows that runs
 entirely on your own computer. Press a hotkey, speak, and the text lands in
 whatever app has focus. No cloud, no account, no API key: speech recognition
 and text cleanup both run locally, and your audio never leaves the machine.
+
+<p align="center">
+  <img src="assets/readme/mindscript-workflow.svg" alt="MindScript workflow: press your hotkey, speak naturally, and keep typing" width="100%" />
+</p>
 
 ## Features
 
@@ -37,6 +45,10 @@ and text cleanup both run locally, and your audio never leaves the machine.
   only.
 - **Interface** in English, Turkish, German, French, Spanish and Russian;
   follows the Windows light/dark theme.
+
+<p align="center">
+  <img src="assets/readme/mindscript-app.png" alt="MindScript settings showing the active local speech model, text cleanup and dictation behavior" width="100%" />
+</p>
 
 ## Requirements
 

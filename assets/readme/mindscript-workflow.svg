@@ -1,0 +1,35 @@
+<svg width="1800" height="560" viewBox="0 0 1800 560" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1800" height="560" rx="30" fill="#09090b"/>
+      <text x="112" y="53" fill="#f4f4f5" font-family="Segoe UI, Arial" font-size="26" font-weight="700">From voice to text in three steps</text>
+      <path d="M578 222h62M1139 222h62" stroke="#46464e" stroke-width="2" stroke-dasharray="8 10"/>
+      <path d="M631 214l10 8-10 8M1192 214l10 8-10 8" fill="none" stroke="#74747d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      
+      <g>
+        <rect x="112" y="86" width="454" height="272" rx="24" fill="#111114" stroke="#29292f"/>
+        <rect x="144" y="116" width="116" height="66" rx="14" fill="#1d1d21" stroke="#45454d"/><text x="202" y="157" text-anchor="middle" fill="#fff" font-family="Segoe UI, Arial" font-size="19" font-weight="650">Ctrl + ⇧</text>
+        <text x="536" y="128" text-anchor="end" fill="#4ade80" opacity="0.9" font-family="Segoe UI, Arial" font-size="16" font-weight="700" letter-spacing="1.4">01</text>
+        <text x="144" y="244" fill="#ffffff" font-family="Segoe UI, Arial" font-size="29" font-weight="700">Press your hotkey</text>
+        <text x="144" y="288" fill="#a1a1aa" font-family="Segoe UI, Arial" font-size="18">Use the default shortcut or choose your own.</text>
+      </g>
+      <g>
+        <rect x="673" y="86" width="454" height="272" rx="24" fill="#111114" stroke="#29292f"/>
+        <rect x="708" y="140" width="6" height="18" rx="3" fill="#f4f4f5"/><rect x="719" y="132" width="6" height="34" rx="3" fill="#f4f4f5"/><rect x="730" y="122" width="6" height="54" rx="3" fill="#f4f4f5"/><rect x="741" y="135" width="6" height="28" rx="3" fill="#f4f4f5"/><rect x="752" y="113" width="6" height="72" rx="3" fill="#f4f4f5"/><rect x="763" y="127" width="6" height="44" rx="3" fill="#f4f4f5"/><rect x="774" y="118" width="6" height="62" rx="3" fill="#f4f4f5"/><rect x="785" y="134" width="6" height="30" rx="3" fill="#f4f4f5"/><rect x="796" y="125" width="6" height="48" rx="3" fill="#f4f4f5"/><rect x="807" y="136" width="6" height="26" rx="3" fill="#f4f4f5"/><rect x="818" y="141" width="6" height="16" rx="3" fill="#f4f4f5"/>
+        <text x="1097" y="128" text-anchor="end" fill="#4ade80" opacity="0.9" font-family="Segoe UI, Arial" font-size="16" font-weight="700" letter-spacing="1.4">02</text>
+        <text x="705" y="244" fill="#ffffff" font-family="Segoe UI, Arial" font-size="29" font-weight="700">Speak naturally</text>
+        <text x="705" y="288" fill="#a1a1aa" font-family="Segoe UI, Arial" font-size="18">MindScript transcribes speech on your device.</text>
+      </g>
+      <g>
+        <rect x="1234" y="86" width="454" height="272" rx="24" fill="#111114" stroke="#29292f"/>
+        <path d="M1268 120h118M1268 145h92M1268 170h108" stroke="#f4f4f5" stroke-width="8" stroke-linecap="round"/>
+        <text x="1658" y="128" text-anchor="end" fill="#4ade80" opacity="0.9" font-family="Segoe UI, Arial" font-size="16" font-weight="700" letter-spacing="1.4">03</text>
+        <text x="1266" y="244" fill="#ffffff" font-family="Segoe UI, Arial" font-size="29" font-weight="700">Keep typing</text>
+        <text x="1266" y="288" fill="#a1a1aa" font-family="Segoe UI, Arial" font-size="18">Clean text appears in the app you are using.</text>
+      </g>
+      <g transform="translate(498 412)">
+        <rect width="804" height="86" rx="43" fill="#101813" stroke="#244c32"/>
+        <path d="M47 24l18 7v15c0 14-8 25-18 30-10-5-18-16-18-30V31l18-7z" fill="none" stroke="#4ade80" stroke-width="3"/>
+        <path d="M39 48l6 6 12-14" fill="none" stroke="#4ade80" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="88" y="40" fill="#f4f4f5" font-family="Segoe UI, Arial" font-size="21" font-weight="700">Everything stays on your PC</text>
+        <text x="88" y="65" fill="#98a39b" font-family="Segoe UI, Arial" font-size="16">No cloud processing · No account · No API key</text>
+      </g>
+    </svg>

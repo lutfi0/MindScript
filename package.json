@@ -18,7 +18,9 @@
     "watch": "tsc -p tsconfig.json --watch",
     "start": "npm run build && electron .",
     "smoke": "npm run build && electron . --smoke",
-    "dist": "npm run build && node scripts/dist.mjs"
+    "dist": "npm run build && node scripts/dist.mjs",
+    "dist:store": "npm run build && node scripts/dist.mjs --store",
+    "dist:store-test": "npm run build && node scripts/dist.mjs --store-test"
   },
   "devDependencies": {
     "@huggingface/transformers": "^4.3.2",
@@ -47,6 +49,21 @@
         "nsis"
       ],
       "icon": "assets/icon.png"
+    },
+    "appx": {
+      "applicationId": "MindScript",
+      "displayName": "MindScript",
+      "publisherDisplayName": "Lutfi",
+      "backgroundColor": "transparent",
+      "languages": [
+        "en-US",
+        "tr-TR",
+        "de-DE",
+        "fr-FR",
+        "es-ES",
+        "ru-RU"
+      ],
+      "customExtensionsPath": "build/appx-startup.xml"
     },
     "publish": [
       {

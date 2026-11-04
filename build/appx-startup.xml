@@ -1,0 +1,3 @@
+        <desktop:Extension Category="windows.startupTask" Executable="app\MindScript.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="MindScriptStartup" Enabled="false" DisplayName="MindScript" />
+        </desktop:Extension>

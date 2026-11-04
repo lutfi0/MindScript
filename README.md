@@ -136,6 +136,12 @@ npm start
 `cert/mindscript-codesign.pfx` and `cert/password.txt` exist, the build is
 code-signed with them; the `cert/` folder is never committed.
 
+`npm run dist:store` builds the unsigned MSIX package for the Microsoft
+Store (the Store signs it); it needs `build.appx.identityName` and
+`build.appx.publisher` in `package.json` set to the values from Partner
+Center. `npm run dist:store-test` builds the same package signed with the
+local certificate, to install and try it before uploading.
+
 Useful flags for development:
 
 ```bash

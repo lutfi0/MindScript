@@ -1,7 +1,8 @@
-// Generates assets/icon.png without any image dependency: a minimal PNG encoder
-// (zlib deflate + manual CRC32) drawing the MindScript mark — the app's own
-// four-bar waveform (see brand-mark in settings/index.html) on a dark rounded
-// square, matching the monochrome UI.
+// Generates assets/icon.png and the Microsoft Store tiles in build/appx/
+// without any image dependency: a minimal PNG encoder (zlib deflate + manual
+// CRC32) drawing the MindScript mark — the app's own four-bar waveform (see
+// brand-mark in settings/index.html) on a dark rounded square, matching the
+// monochrome UI.
 import { deflateSync } from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'assets', 'icon.png');
+const APPX_DIR = path.join(ROOT, 'build', 'appx');
+// the mark is designed on a 256-unit canvas and scaled to each output size
 const SIZE = 256;
 
 const CRC_TABLE = (() => {
@@ -111,33 +114,57 @@ function sample(x, y) {
   return [0, 1, 2].map((k) => TOP[k] + (BOTTOM[k] - TOP[k]) * t);
 }
 
-const N = 4;
-const rgba = Buffer.alloc(SIZE * SIZE * 4);
-for (let y = 0; y < SIZE; y++) {
-  for (let x = 0; x < SIZE; x++) {
-    let rr = 0;
-    let gg = 0;
-    let bb = 0;
-    let hits = 0;
-    for (let sy = 0; sy < N; sy++) {
-      for (let sx = 0; sx < N; sx++) {
-        const s = sample(x + (sx + 0.5) / N, y + (sy + 0.5) / N);
-        if (!s) continue;
-        rr += s[0];
-        gg += s[1];
-        bb += s[2];
-        hits++;
+// Draws the mark `mark` pixels wide, centred on a transparent width x height
+// canvas.
+function render(width, height, mark) {
+  const N = mark < 128 ? 8 : 4; // supersampling per axis
+  const unit = SIZE / mark;
+  const ox = (width - mark) / 2;
+  const oy = (height - mark) / 2;
+  const rgba = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let rr = 0;
+      let gg = 0;
+      let bb = 0;
+      let hits = 0;
+      for (let sy = 0; sy < N; sy++) {
+        for (let sx = 0; sx < N; sx++) {
+          const s = sample((x - ox + (sx + 0.5) / N) * unit, (y - oy + (sy + 0.5) / N) * unit);
+          if (!s) continue;
+          rr += s[0];
+          gg += s[1];
+          bb += s[2];
+          hits++;
+        }
       }
+      const i = (y * width + x) * 4;
+      if (hits === 0) continue;
+      rgba[i] = Math.round(rr / hits);
+      rgba[i + 1] = Math.round(gg / hits);
+      rgba[i + 2] = Math.round(bb / hits);
+      rgba[i + 3] = Math.round((hits / (N * N)) * 255);
     }
-    const i = (y * SIZE + x) * 4;
-    if (hits === 0) continue;
-    rgba[i] = Math.round(rr / hits);
-    rgba[i + 1] = Math.round(gg / hits);
-    rgba[i + 2] = Math.round(bb / hits);
-    rgba[i + 3] = Math.round((hits / (N * N)) * 255);
   }
+  return encodePng(width, height, rgba);
 }
 
-fs.mkdirSync(path.dirname(OUT), { recursive: true });
-fs.writeFileSync(OUT, encodePng(SIZE, SIZE, rgba));
-console.log(`wrote ${path.relative(ROOT, OUT)} (${SIZE}x${SIZE})`);
+function write(file, width, height, mark) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, render(width, height, mark));
+  console.log(`wrote ${path.relative(ROOT, file)} (${width}x${height})`);
+}
+
+write(OUT, SIZE, SIZE, SIZE);
+
+// Microsoft Store (MSIX) tiles, picked up by electron-builder from build/appx/.
+// Tiles keep some margin around the mark, as the Windows tile guidelines ask.
+const TILES = [
+  ['StoreLogo.png', 50, 50, 50],
+  ['Square44x44Logo.png', 44, 44, 44],
+  ['SmallTile.png', 71, 71, 52],
+  ['Square150x150Logo.png', 150, 150, 100],
+  ['Wide310x150Logo.png', 310, 150, 100],
+  ['LargeTile.png', 310, 310, 200],
+];
+for (const [name, w, h, mark] of TILES) write(path.join(APPX_DIR, name), w, h, mark);

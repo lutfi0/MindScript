@@ -44,6 +44,10 @@ if (process.argv.includes('--dev-profile')) {
   app.setPath('userData', path.join(app.getPath('appData'), 'mindscript-dev'));
 }
 
+// Windows drops notifications (such as "update ready") from an app without an
+// AppUserModelId; use the one the installer gives the Start menu shortcut.
+app.setAppUserModelId('com.mindscript.app');
+
 // Must run before app ready.
 registerMsresScheme();
 

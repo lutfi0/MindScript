@@ -395,6 +395,22 @@
           </div>
         </div>
       </div>
+      <div class="card">
+        <h2 data-i18n="updates.title">Updates</h2>
+        <p class="card-sub" id="updateVersion"></p>
+        <div class="switch-row">
+          <label class="switch"><input type="checkbox" id="updateNotify" /><span class="track"></span></label>
+          <div>
+            <div class="switch-title" data-i18n="updates.notify">Update notifications</div>
+            <div class="strip-sub" data-i18n="updates.notifySub">Download new versions in the background and let me know when one is ready. When off, new versions are only shown here.</div>
+          </div>
+        </div>
+        <div class="update-row">
+          <span class="update-status" id="updateStatus"></span>
+          <button class="secondary" id="updateCheck" type="button" data-i18n="updates.check">Check for updates</button>
+          <button class="primary hidden" id="updateInstall" type="button"></button>
+        </div>
+      </div>
     </section>
 
     <!-- ═══ HISTORY ═══ -->

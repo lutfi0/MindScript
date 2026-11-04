@@ -94,6 +94,7 @@ export class SettingsStore {
         launchOnStartup: raw.launchOnStartup === true,
         liveDrafts: raw.liveDrafts !== false,
         uiLanguage: typeof raw.uiLanguage === 'string' ? raw.uiLanguage : 'auto',
+        updateNotify: raw.updateNotify !== false,
         customModels,
       };
       return s;

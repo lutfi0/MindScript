@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { I18nPayload } from '../shared/i18n';
-import type { CleanupStatus, CustomModel, HardwareInfo, HistoryEntry, ModelCatalogEntry, ModelStatus, SaveResult, Settings, TestResult, WhisperModelId } from '../shared/ipc';
+import type { CleanupStatus, CustomModel, HardwareInfo, HistoryEntry, ModelCatalogEntry, ModelStatus, SaveResult, Settings, TestResult, UpdateStatus, WhisperModelId } from '../shared/ipc';
 
 const api = {
   get(): Promise<Settings> {
@@ -50,6 +50,21 @@ const api = {
     const listener = (_e: unknown, status: CleanupStatus) => cb(status);
     ipcRenderer.on('cleanup:status', listener);
     return () => ipcRenderer.removeListener('cleanup:status', listener);
+  },
+  /** App updates from GitHub Releases: state, manual check, install. */
+  getUpdate(): Promise<UpdateStatus> {
+    return ipcRenderer.invoke('update:get');
+  },
+  checkUpdate(): Promise<void> {
+    return ipcRenderer.invoke('update:check');
+  },
+  installUpdate(): Promise<void> {
+    return ipcRenderer.invoke('update:install');
+  },
+  onUpdateStatus(cb: (status: UpdateStatus) => void): () => void {
+    const listener = (_e: unknown, status: UpdateStatus) => cb(status);
+    ipcRenderer.on('update:status', listener);
+    return () => ipcRenderer.removeListener('update:status', listener);
   },
   historyList(): Promise<HistoryEntry[]> {
     return ipcRenderer.invoke('history:list');

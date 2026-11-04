@@ -8,6 +8,7 @@ import type {
   SaveResult,
   Settings,
   TestResult,
+  UpdateStatus,
   WhisperModelId,
 } from '../../shared/ipc';
 import type { I18nPayload } from '../../shared/i18n';
@@ -30,6 +31,10 @@ declare global {
       onCleanupStatus(cb: (status: CleanupStatus) => void): () => void;
       addCustomModel(kind: CustomModel['kind'], link: string, name: string): Promise<{ ok: boolean; id?: string; message?: string }>;
       getHardware(): Promise<HardwareInfo>;
+      getUpdate(): Promise<UpdateStatus>;
+      checkUpdate(): Promise<void>;
+      installUpdate(): Promise<void>;
+      onUpdateStatus(cb: (status: UpdateStatus) => void): () => void;
       historyList(): Promise<HistoryEntry[]>;
       historyRemove(id: string): Promise<void>;
       historyClear(): Promise<void>;
@@ -89,6 +94,7 @@ function applyI18n(): void {
   renderAll();
   renderCleanup();
   renderHistory();
+  renderUpdate();
 }
 
 function fillLangSelect(): void {
@@ -799,6 +805,35 @@ async function loadHistory(): Promise<void> {
   renderHistory();
 }
 
+/* ── Updates (Behavior page) ───────────────────────────────── */
+let update: UpdateStatus | null = null;
+
+function renderUpdate(): void {
+  if (!update) return;
+  const u = update;
+  const version = u.version ?? '';
+  const status = $('updateStatus');
+  const texts: Record<UpdateStatus['state'], [string, string]> = {
+    unsupported: [t('updates.unsupported'), ''],
+    idle: ['', ''],
+    checking: [t('updates.checking'), ''],
+    none: [t('updates.none'), ''],
+    available: [t('updates.available', { version }), 'new'],
+    downloading: [t('updates.downloading', { version, progress: u.progress ?? 0 }), 'new'],
+    downloaded: [t('updates.ready', { version }), 'new'],
+    error: [t('updates.error'), 'err'],
+  };
+  const [text, kind] = texts[u.state];
+  $('updateVersion').textContent = t('updates.current', { version: u.current });
+  status.textContent = text;
+  status.dataset.kind = kind;
+  status.title = u.state === 'error' ? (u.message ?? '') : '';
+  ($('updateCheck') as HTMLButtonElement).disabled = ['unsupported', 'checking', 'downloading'].includes(u.state);
+  const install = $('updateInstall') as HTMLButtonElement;
+  install.classList.toggle('hidden', u.state !== 'available' && u.state !== 'downloaded');
+  install.textContent = t(u.state === 'downloaded' ? 'updates.restart' : 'updates.install');
+}
+
 /* ── Paired controls (General ↔ own page) ──────────────────── */
 function pair(a: string, b: string, apply: (el: HTMLInputElement, v: boolean) => void, read: (el: HTMLInputElement) => boolean, saveFn: (v: boolean) => void): void {
   const elA = $(a) as unknown as HTMLInputElement;
@@ -866,6 +901,19 @@ async function init(): Promise<void> {
   });
   pair('launchOnStartup', 'launchOnStartup1', (el, v) => (el.checked = v), (el) => el.checked, (v) => {
     void save({ launchOnStartup: v });
+  });
+
+  // Updates
+  ($('updateNotify') as HTMLInputElement).checked = settings.updateNotify;
+  $('updateNotify').addEventListener('change', () => {
+    void save({ updateNotify: ($('updateNotify') as HTMLInputElement).checked });
+  });
+  $('updateCheck').addEventListener('click', () => void window.msSettings.checkUpdate());
+  $('updateInstall').addEventListener('click', () => void window.msSettings.installUpdate());
+  update = await window.msSettings.getUpdate();
+  window.msSettings.onUpdateStatus((s) => {
+    update = s;
+    renderUpdate();
   });
 
   // Text cleanup engine (General card ↔ Text cleanup page)

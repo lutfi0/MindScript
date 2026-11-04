@@ -96,6 +96,12 @@ export interface Settings {
   liveDrafts: boolean;
   /** UI language: 'auto' follows the OS, otherwise a UiLang code (en/tr/de/fr/es/ru) */
   uiLanguage: string;
+  /**
+   * true: new versions download in the background, a notification says when
+   * one is ready and it installs on quit. false: the app only checks; the
+   * Behavior page shows the new version and installs it on request.
+   */
+  updateNotify: boolean;
   /** third-party models added from a link (managed through their own IPC) */
   customModels: CustomModel[];
 }
@@ -137,6 +143,7 @@ export const DEFAULT_SETTINGS: Settings = {
   launchOnStartup: false,
   liveDrafts: true,
   uiLanguage: 'auto',
+  updateNotify: true,
   customModels: [],
 };
 
@@ -288,6 +295,18 @@ export interface CleanupStatus {
   message?: string;
 }
 
+export interface UpdateStatus {
+  /** 'unsupported': not an installed build (dev run), updates are off */
+  state: 'unsupported' | 'idle' | 'checking' | 'none' | 'available' | 'downloading' | 'downloaded' | 'error';
+  /** installed version */
+  current: string;
+  /** newer version on GitHub Releases, once found */
+  version?: string;
+  /** 0..100 while downloading */
+  progress?: number;
+  message?: string;
+}
+
 export type ModelStatusState = 'idle' | 'downloading' | 'loading' | 'ready' | 'error';
 
 export interface ModelStatus {
@@ -326,6 +345,10 @@ export const Channels = {
   cleanupStatus: 'cleanup:status',
   modelAddCustom: 'model:add-custom',
   systemHardware: 'system:hardware',
+  updateGet: 'update:get',
+  updateCheck: 'update:check',
+  updateInstall: 'update:install',
+  updateStatus: 'update:status',
 } as const;
 
 export interface SaveResult {

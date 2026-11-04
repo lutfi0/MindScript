@@ -27,7 +27,7 @@ import {
 } from './llamacpp';
 import { TranscriptionEngine, handleMsresScheme, registerMsresScheme } from './engine';
 import { deleteModel, ensureModelDownloaded, isModelDownloaded, modelDir, modelDirSize } from './models';
-import { setupAutoUpdater } from './updater';
+import { setUpdateNotify, setupAutoUpdater } from './updater';
 import { getMainLang, setMainLang, tMain } from './lang';
 import { i18nPayload } from '../shared/i18n';
 
@@ -422,6 +422,7 @@ function applySettings(next: Settings): SaveResult {
     openAtLogin: next.launchOnStartup,
     args: ['--hidden'],
   });
+  setUpdateNotify(next.updateNotify);
   tray?.setHotkeyLabel(next.hotkey);
   tray?.rebuild(false, next.launchOnStartup);
   if (prevHotkey !== next.hotkey || prevHold !== next.holdToStartMs) {
@@ -563,6 +564,7 @@ function registerIpc(): void {
       launchOnStartup: partial.launchOnStartup ?? settings.launchOnStartup,
       liveDrafts: partial.liveDrafts ?? settings.liveDrafts,
       uiLanguage: typeof partial.uiLanguage === 'string' ? partial.uiLanguage : settings.uiLanguage,
+      updateNotify: typeof partial.updateNotify === 'boolean' ? partial.updateNotify : settings.updateNotify,
       // custom models change only through model:add-custom / the delete handlers
       customModels: settings.customModels,
     };
@@ -729,7 +731,7 @@ void app.whenReady().then(async () => {
 
   handleMsresScheme();
   registerIpc();
-  setupAutoUpdater(diag);
+  setupAutoUpdater(diag, settings.updateNotify);
   setMainLang(settings.uiLanguage, app.getLocale());
   if (!settingsStore.exists()) {
     // first run: dictate in the OS language when we offer it

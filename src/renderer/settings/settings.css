@@ -285,6 +285,12 @@ select {
 .hotkey-input { cursor: pointer; font-family: Consolas, monospace; }
 .hotkey-input.listening { border-color: var(--border-strong); background: var(--panel-raised); }
 
+/* ── Updates card ─────────────────────────────────────────── */
+.update-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.update-status { flex: 1; min-width: 200px; color: var(--muted); font-size: 13px; }
+.update-status[data-kind='new'] { color: var(--ok); font-weight: 600; }
+.update-status[data-kind='err'] { color: var(--muted); }
+
 /* ── Anahtar (toggle) ─────────────────────────────────────── */
 .switch-row { display: flex; align-items: flex-start; gap: 14px; }
 .switch { position: relative; display: inline-block; flex-shrink: 0; margin-top: 1px; }

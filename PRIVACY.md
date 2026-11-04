@@ -2,8 +2,8 @@
 
 Last updated: November 4, 2026
 
-MindScript is a voice dictation app for Windows, published by Lzero Labs.
-It is built to work entirely on your own computer.
+MindScript is an open-source voice dictation app for Windows. It is built to
+work entirely on your own computer.
 
 ## What MindScript processes
 
@@ -36,8 +36,7 @@ MindScript only connects to the internet to download files you choose:
   releases, or from the MindScript GitHub releases for the AMD/Intel build,
 - any model you add yourself from a download link, from the address you gave.
 
-The version installed outside the Microsoft Store also checks GitHub Releases
-for app updates. The Microsoft Store version is updated by the Store.
+MindScript also checks GitHub Releases for app updates.
 
 These downloads are ordinary web requests. The servers receive your IP
 address and basic request details, as with any download, and handle them

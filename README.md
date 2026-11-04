@@ -65,6 +65,11 @@ Download `MindScript Setup <version>.exe` from the
 MindScript starts in the system tray and opens its settings window.
 Nothing is downloaded until you choose a model.
 
+Windows may show a SmartScreen warning ("Windows protected your PC") because
+the installer isn't signed with a paid code-signing certificate. Choose
+**More info → Run anyway** to install. Updates installed from within the app
+don't show this warning.
+
 1. **Get started** page: MindScript checks your graphics card and suggests a
    speech model that fits it. Download the suggestion, or pick another one on
    the **Models** page. The dictation language follows Windows on first start;
@@ -135,12 +140,6 @@ npm start
 `npm run dist` builds the Windows installer into `release/`. If
 `cert/mindscript-codesign.pfx` and `cert/password.txt` exist, the build is
 code-signed with them; the `cert/` folder is never committed.
-
-`npm run dist:store` builds the unsigned MSIX package for the Microsoft
-Store (the Store signs it); it needs `build.appx.identityName` and
-`build.appx.publisher` in `package.json` set to the values from Partner
-Center. `npm run dist:store-test` builds the same package signed with the
-local certificate, to install and try it before uploading.
 
 Useful flags for development:
 

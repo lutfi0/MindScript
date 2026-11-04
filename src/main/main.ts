@@ -28,7 +28,6 @@ import {
 import { TranscriptionEngine, handleMsresScheme, registerMsresScheme } from './engine';
 import { deleteModel, ensureModelDownloaded, isModelDownloaded, modelDir, modelDirSize } from './models';
 import { setupAutoUpdater } from './updater';
-import { launchedAtStartup, setLaunchOnStartup } from './startup';
 import { getMainLang, setMainLang, tMain } from './lang';
 import { i18nPayload } from '../shared/i18n';
 
@@ -405,7 +404,6 @@ function applySettings(next: Settings): SaveResult {
   const prevHold = settings.holdToStartMs;
   const engineChanged = next.engine.model !== settings.engine.model;
   const prevPolish = settings.polish;
-  const prevLaunchOnStartup = settings.launchOnStartup;
   settings = next;
   setCustomModels(next.customModels);
   settingsStore.save(next);
@@ -416,11 +414,10 @@ function applySettings(next: Settings): SaveResult {
       if (!win.isDestroyed()) win.webContents.send('i18n:changed', payload);
     }
   }
-  // the Store build switches a StartupTask through PowerShell; only do that
-  // when the setting actually changed
-  if (!process.windowsStore || next.launchOnStartup !== prevLaunchOnStartup) {
-    setLaunchOnStartup(next.launchOnStartup, diag);
-  }
+  app.setLoginItemSettings({
+    openAtLogin: next.launchOnStartup,
+    args: ['--hidden'],
+  });
   tray?.setHotkeyLabel(next.hotkey);
   tray?.rebuild(false, next.launchOnStartup);
   if (prevHotkey !== next.hotkey || prevHold !== next.holdToStartMs) {
@@ -846,7 +843,7 @@ void app.whenReady().then(async () => {
   // (the first getUserMedia of a renderer stalls on Windows for seconds).
   overlay.prewarm();
 
-  if (!launchedAtStartup(settings.launchOnStartup)) openWindow('settings');
+  if (!process.argv.includes('--hidden')) openWindow('settings');
 });
 
 app.on('will-quit', () => {

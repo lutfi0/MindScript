@@ -2,13 +2,12 @@
 // Only active in the packaged app and only when a `publish` provider is
 // configured in package.json (GitHub Releases). Silent on any failure:
 // dictation must never break because of an update check.
-// Microsoft Store (MSIX) installs are updated by the Store instead.
 import { app, Notification } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { tMain } from './lang';
 
 export function setupAutoUpdater(log: (event: string, detail?: string) => void): void {
-  if (!app.isPackaged || process.windowsStore) return;
+  if (!app.isPackaged) return;
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;

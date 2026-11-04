@@ -51,10 +51,14 @@
       "icon": "assets/icon.png"
     },
     "appx": {
+      "identityName": "LzeroLabs.MindScript",
+      "publisher": "CN=EE67A9BF-F5E9-46F8-9CB1-C4F3D0FB9F91",
+      "publisherDisplayName": "Lzero Labs",
       "applicationId": "MindScript",
       "displayName": "MindScript",
-      "publisherDisplayName": "Lutfi",
       "backgroundColor": "transparent",
+      "minVersion": "10.0.17763.0",
+      "maxVersionTested": "10.0.26100.0",
       "languages": [
         "en-US",
         "tr-TR",

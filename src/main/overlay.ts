@@ -1,12 +1,22 @@
-// The floating dictation pill. Borderless, transparent, always-on-top and —
+// The floating dictation pill. Borderless, always-on-top and —
 // critically — non-focusable, so the user's target app keeps keyboard focus
 // for the whole record → transcribe → paste cycle.
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, nativeTheme, screen } from 'electron';
 import * as path from 'node:path';
 import { OverlayCommand, OverlayStateMsg, Settings } from '../shared/ipc';
 
-const WIDTH = 560;
-const HEIGHT = 148;
+// The window is the pill itself: opaque, with Windows 11 drawing the rounded
+// corners and the shadow. A transparent window with a CSS shadow had its
+// shadow clipped at the window edge and stuttered, because Windows reads a
+// transparent window back from the GPU every frame while Whisper is busy on it.
+const WIDTH = 532;
+const HEIGHT = 120;
+/** Distance from the bottom of the work area (kept where the old pill sat). */
+const BOTTOM_GAP = 78;
+
+function pillBackground(): string {
+  return nativeTheme.shouldUseDarkColors ? '#101010' : '#ffffff';
+}
 
 export class OverlayController {
   private win: BrowserWindow | null = null;
@@ -21,7 +31,9 @@ export class OverlayController {
       width: WIDTH,
       height: HEIGHT,
       frame: false,
-      transparent: true,
+      transparent: false,
+      roundedCorners: true,
+      thickFrame: true, // gives the frameless window the native shadow
       resizable: false,
       movable: false,
       minimizable: false,
@@ -30,9 +42,9 @@ export class OverlayController {
       skipTaskbar: true,
       alwaysOnTop: true,
       focusable: false,
-      hasShadow: false,
+      hasShadow: true,
       show: false,
-      backgroundColor: '#00000000',
+      backgroundColor: pillBackground(),
       webPreferences: {
         preload: path.join(__dirname, '..', 'preload', 'overlay.js'),
         contextIsolation: true,
@@ -47,6 +59,11 @@ export class OverlayController {
     });
     win.setAlwaysOnTop(true, 'screen-saver');
     win.setIgnoreMouseEvents(false);
+    const syncBackground = () => {
+      if (!win.isDestroyed()) win.setBackgroundColor(pillBackground());
+    };
+    nativeTheme.on('updated', syncBackground);
+    win.on('closed', () => nativeTheme.off('updated', syncBackground));
     win.webContents.once('did-finish-load', () => {
       this.loaded = true;
       for (const send of this.pending.splice(0)) send();
@@ -85,7 +102,7 @@ export class OverlayController {
     }
     return {
       x: Math.round(workArea.x + (workArea.width - WIDTH) / 2),
-      y: Math.round(workArea.y + workArea.height - HEIGHT - 64),
+      y: Math.round(workArea.y + workArea.height - HEIGHT - BOTTOM_GAP),
     };
   }
 

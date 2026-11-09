@@ -11,6 +11,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { CleanupModelId, CleanupStatus, GpuBackend } from '../shared/ipc';
 import { cleanupSpec } from './catalog';
+import { runInBackground } from './proc';
 import { detectHardware } from './hardware';
 import { backendOrder, downloadFile, downloadWithMirrors, modelsRoot, unzip } from './models';
 import { tMain } from './lang';
@@ -268,6 +269,9 @@ export class LlamaCppServer {
       '-ngl', '999', // every layer on the GPU
       '-c', String(CTX_SIZE),
       '-np', '1',
+      // Every layer runs on the GPU, so the CPU only feeds it: 4 threads are
+      // as fast as all cores and leave the rest of the PC free.
+      '-t', '4',
       '-fa', 'on',
       '--reasoning', 'off', // Qwen3.5 would otherwise "think" first
       '--cache-ram', '0',
@@ -282,6 +286,7 @@ export class LlamaCppServer {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    runInBackground(child);
     this.child = child;
     this.model = model;
     this.logLines = [];

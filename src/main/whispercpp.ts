@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import { WhisperModelId } from '../shared/ipc';
 import { speechSpec } from './catalog';
 import { modelDir, whisperServerExe } from './models';
+import { runInBackground } from './proc';
 
 const PORT = 17895;
 const HEALTH_TIMEOUT_MS = 60_000; // first CUDA init + model mmap can be slow
@@ -66,6 +67,7 @@ export class WhisperCppServer {
       ['-m', modelPath, '--host', '127.0.0.1', '--port', String(PORT), '-t', '4'],
       { cwd: path.dirname(exe), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
     );
+    runInBackground(child);
     this.child = child;
     this.model = model;
     this.logLines = [];

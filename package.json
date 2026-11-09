@@ -1,7 +1,7 @@
 {
   "name": "mindscript",
   "productName": "MindScript",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Talk, and MindScript types. Fully local voice dictation for Windows with GPU speech recognition and optional AI text cleanup.",
   "main": "dist/main/main.js",
   "author": "lutfi0",

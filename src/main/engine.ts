@@ -12,6 +12,15 @@ import { ensureModelDownloaded, isModelDownloaded, modelDir } from './models';
 import { WhisperCppServer } from './whispercpp';
 import { tMain } from './lang';
 
+/** whisper.cpp didn't answer in time — usually another app is keeping the
+ *  graphics card busy (a game, Unity, a 3D editor). */
+export class TranscribeTimeoutError extends Error {
+  constructor() {
+    super('transcription timed out');
+    this.name = 'TranscribeTimeoutError';
+  }
+}
+
 export function registerMsresScheme(): void {
   // must run before app ready
   protocol.registerSchemesAsPrivileged([
@@ -188,7 +197,12 @@ export class TranscriptionEngine {
     if (isGgmlModel(model)) {
       // whisper.cpp route: the "pipeline" is the warm native CUDA server; the
       // engine window is only used to decode webm→PCM and POST WAV chunks.
-      if (this.loadedModels.has(model) && this.cpp.isRunningFor(model)) return;
+      if (this.loadedModels.has(model)) {
+        if (this.cpp.isRunningFor(model)) return;
+        // the server exited or was stopped (crash, timeout): start it again
+        this.loadedModels.delete(model);
+        this.modelLoads.delete(model);
+      }
       if (!isModelDownloaded(model)) {
         throw new Error(tMain('main.modelMissing'));
       }
@@ -237,6 +251,7 @@ export class TranscriptionEngine {
     data: Buffer,
     mime: string,
     offsetMs?: number,
+    timeoutMs?: number,
   ): Promise<string> {
     await this.ensureModel(model);
     const id = ++this.reqSeq;
@@ -253,9 +268,26 @@ export class TranscriptionEngine {
       this.pending.set(id, { resolve, reject });
     });
     this.win!.webContents.send('engine:job', job);
+    let timer: NodeJS.Timeout | undefined;
     try {
-      return await promise;
+      if (!timeoutMs || !isGgmlModel(model)) return await promise;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new TranscribeTimeoutError()), timeoutMs);
+      });
+      try {
+        return await Promise.race([promise, timeout]);
+      } catch (err) {
+        if (err instanceof TranscribeTimeoutError) {
+          // The server is still working on this request and serves one at a
+          // time; restart it so the next dictation isn't queued behind it.
+          this.cpp.stop();
+          this.loadedModels.delete(model);
+          this.modelLoads.delete(model);
+        }
+        throw err;
+      }
     } finally {
+      clearTimeout(timer);
       this.pending.delete(id);
     }
   }

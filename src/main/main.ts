@@ -3,6 +3,7 @@
 // Whisper runs on this machine (never the cloud) → text is pasted into the
 // focused app → kept in local history.
 import { app, globalShortcut, ipcMain, clipboard, BrowserWindow } from 'electron';
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import { CustomModel, DEFAULT_SETTINGS, parseModelLink, Channels, DICTATION_LANGUAGES, HOLD_TO_START_OPTIONS, CleanupModelId, HistoryEntry, ModelStatus, SaveResult, Settings, TestResult, WHISPER_MODELS, WhisperModelId, isCleanupModel, isGgmlModel } from '../shared/ipc';
@@ -25,7 +26,7 @@ import {
   isCleanupModelDownloaded,
   llamaServerExe,
 } from './llamacpp';
-import { TranscriptionEngine, handleMsresScheme, registerMsresScheme } from './engine';
+import { TranscribeTimeoutError, TranscriptionEngine, handleMsresScheme, registerMsresScheme } from './engine';
 import { deleteModel, ensureModelDownloaded, isModelDownloaded, modelDir, modelDirSize } from './models';
 import { setUpdateNotify, setupAutoUpdater } from './updater';
 import { getMainLang, setMainLang, tMain } from './lang';
@@ -73,7 +74,34 @@ let pasteTargetHwnd: string | null = null;
 /** Collapses whisper.cpp's per-segment newlines and stray whitespace into
  *  normal flowing text before it is pasted/stored. */
 function normalizeTranscript(t: string): string {
-  return collapseRepeats(t.replace(/\s+/g, ' ').trim());
+  return collapseRepeats(stripSubtitleHallucinations(t.replace(/\s+/g, ' ').trim()));
+}
+
+// Whisper was trained on film/TV subtitles, so on silence (usually the end of
+// a recording) it "hears" the subtitle credits or a YouTube sign-off. Nobody
+// dictates a subtitler's credit, so those go wherever they appear.
+const SUBTITLE_CREDITS: RegExp[] = [
+  /(?<!\p{L})altyaz[ıi](?:lar)?\s*:?\s*m\.?\s*k\.?/giu,
+  /[^.!?…]*amara\.org[^.!?…]*[.!?…]*/giu,
+  /(?<!\p{L})untertitel(?:ung)?\s+(?:im\s+auftrag\s+)?(?:des|der|von)\s+[^.!?…]{0,40}?(?:zdf|ard|swr|wdr|ndr|br|funk)(?!\p{L})[^.!?…]*[.!?…]*/giu,
+  /(?<!\p{L})sous-titrage\s+st'?\s*\d+[.!?…]*/giu,
+  /(?<!\p{L})субтитры\s+(?:сделал|создавал|подогнал|подготовил)[а-яё]*\s+[^.!?…]{0,40}[.!?…]*/giu,
+  /(?<!\p{L})редактор\s+субтитров\s+[^.!?…]{0,60}(?:корректор\s+[^.!?…]{0,30})?[.!?…]*/giu,
+];
+// Sign-offs could be said on purpose, so they're only dropped as the last
+// sentence (where the silence hallucination lands).
+const TRAILING_SIGNOFF =
+  /(?:^|(?<=[.!?…])\s*)(?:[iİ]zlediğiniz\s+[iİ]çin\s+teşekkür(?:ler|\s+ederim)|abone\s+olmayı\s+unutmayın|thank(?:s|\s+you)\s+(?:so\s+much\s+)?for\s+watching|please\s+subscribe|vielen\s+dank\s+(?:fürs|für\s+das|für's)\s+zuschauen|merci\s+d'avoir\s+regardé|¡?gracias\s+por\s+ver(?:\s+el\s+video)?|спасибо\s+за\s+просмотр|продолжение\s+следует)[\s.!?…]*$/iu;
+
+function stripSubtitleHallucinations(text: string): string {
+  let out = text;
+  for (const re of SUBTITLE_CREDITS) out = out.replace(re, ' ');
+  for (let i = 0; i < 3; i++) {
+    const next = out.trim().replace(TRAILING_SIGNOFF, '');
+    if (next === out.trim()) break;
+    out = next;
+  }
+  return out.replace(/\s+([.,!?…])/g, '$1').replace(/\s+/g, ' ').trim();
 }
 
 /** Joins the checkpoint transcript with the tail pass, dropping words that
@@ -123,6 +151,44 @@ function diag(event: string, detail = ''): void {
   } catch {
     /* never break the app for logging */
   }
+}
+
+/**
+ * How long a whisper.cpp pass may take before we give up on it. The GPU
+ * normally runs ~10-30x realtime, so half the audio length plus 30s is
+ * generous; only a graphics card kept busy by another app gets near it.
+ */
+function transcribeTimeoutMs(audioMs: number): number {
+  return 30_000 + Math.max(0, audioMs) / 2;
+}
+
+/**
+ * Stops whisper-server / llama-server processes left from an earlier run
+ * (crash, killed from Task Manager). A leftover holds the engine's port, so a
+ * new server can't bind and requests would reach the old, possibly stuck one.
+ * Only engines started from MindScript's own folders are touched; the
+ * single-instance lock guarantees no other MindScript owns them.
+ */
+function stopStaleEngines(): Promise<void> {
+  const roots = [app.getPath('userData'), path.join(app.getPath('appData'), 'mindscript')];
+  const list = roots.map((r) => `'${r.replace(/'/g, "''")}'`).join(',');
+  const script =
+    `$roots = @(${list}); ` +
+    `Get-CimInstance Win32_Process -Filter "Name='whisper-server.exe' OR Name='llama-server.exe'" | ` +
+    `Where-Object { $p = $_.ExecutablePath; $p -and ($roots | Where-Object { $p.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) }) } | ` +
+    `ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; $_.Name + ' ' + $_.ProcessId }`;
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      { windowsHide: true, timeout: 10_000 },
+      (_err, stdout) => {
+        const stopped = stdout.trim().split(/\r?\n/).filter(Boolean);
+        if (stopped.length) diag('stale-engines-stopped', stopped.join(', '));
+        resolve();
+      },
+    );
+  });
 }
 
 function builtinCleanupActive(): boolean {
@@ -325,7 +391,7 @@ async function handleAudio(buf: Buffer, mime: string, durationMs: number): Promi
   incAtMs = 0;
 
   const fullPass = () =>
-    engine.transcribe(settings.engine.model, settings.engine.language, buf, mime);
+    engine.transcribe(settings.engine.model, settings.engine.language, buf, mime, undefined, transcribeTimeoutMs(durationMs));
 
   let text: string;
   try {
@@ -341,10 +407,14 @@ async function handleAudio(buf: Buffer, mime: string, durationMs: number): Promi
           buf,
           mime,
           Math.max(0, checkpointAtMs - 1000),
+          transcribeTimeoutMs(tailMs),
         );
         text = mergeTranscripts(checkpointText, tail);
         diag('incremental-tail', `tail=${Math.round(tailMs)}ms merged`);
-      } catch {
+      } catch (err) {
+        // a full pass would only take longer than the tail that timed out
+        if (err instanceof TranscribeTimeoutError) throw err;
+        diag('transcribe-error', `tail: ${err instanceof Error ? err.message : String(err)}`);
         text = await fullPass();
       }
     } else {
@@ -359,9 +429,11 @@ async function handleAudio(buf: Buffer, mime: string, durationMs: number): Promi
       diag('polish', `${settings.polish.engine} ${Date.now() - t0}ms changed=${text !== raw}`);
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const timedOut = err instanceof TranscribeTimeoutError;
+    const message = timedOut ? tMain('main.transcribeTimeout') : err instanceof Error ? err.message : String(err);
+    diag('transcribe-error', `${timedOut ? 'timeout' : 'failed'} audio=${Math.round(durationMs)}ms ${err instanceof Error ? err.message : String(err)}`);
     overlay.sendState({ phase: 'error', message });
-    scheduleHideOverlay(3200);
+    scheduleHideOverlay(timedOut ? 8000 : 3200);
     setPhase('idle');
     return;
   }
@@ -520,7 +592,14 @@ function registerIpc(): void {
       const offsetMs = incAtMs > 0 ? Math.max(0, incAtMs - 800) : undefined;
       const checkpointBefore = incAtMs;
       void engine
-        .transcribe(model, settings.engine.language, buf, mime || 'audio/webm', offsetMs)
+        .transcribe(
+          model,
+          settings.engine.language,
+          buf,
+          mime || 'audio/webm',
+          offsetMs,
+          transcribeTimeoutMs(elapsed - (offsetMs ?? 0)),
+        )
         .then((segment) => {
           if (phase !== 'recording') return;
           if (segment) {
@@ -534,7 +613,7 @@ function registerIpc(): void {
           // final tail stays short.
           incAtMs = elapsed;
         })
-        .catch(() => undefined)
+        .catch((err) => diag('transcribe-error', `live draft: ${err instanceof Error ? err.message : String(err)}`))
         .finally(() => {
           interimBusy = false;
         });
@@ -728,6 +807,8 @@ void app.whenReady().then(async () => {
     app.quit();
     return;
   }
+  // A dev-profile run sits beside the installed app; its engines aren't stale.
+  if (!process.argv.includes('--dev-profile')) await stopStaleEngines();
 
   handleMsresScheme();
   registerIpc();

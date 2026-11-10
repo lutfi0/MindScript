@@ -8,8 +8,9 @@
 import { app, BrowserWindow } from 'electron';
 import { ChildProcess, spawn } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
-import { CleanupModelId, CleanupStatus, GpuBackend } from '../shared/ipc';
+import { CleanupDevice, CleanupModelId, CleanupStatus, GpuBackend } from '../shared/ipc';
 import { cleanupSpec } from './catalog';
 import { runInBackground } from './proc';
 import { detectHardware } from './hardware';
@@ -220,6 +221,7 @@ export function ensureCleanupModel(model: CleanupModelId): Promise<void> {
 export class LlamaCppServer {
   private child: ChildProcess | null = null;
   private model: CleanupModelId | null = null;
+  private device: CleanupDevice = 'gpu';
   private starting: Promise<void> | null = null;
   private logLines: string[] = [];
   private idleTimer: NodeJS.Timeout | null = null;
@@ -228,17 +230,18 @@ export class LlamaCppServer {
     return `http://127.0.0.1:${PORT}`;
   }
 
-  isRunningFor(model: CleanupModelId): boolean {
-    return !!this.child && this.model === model;
+  /** True when the warm server runs this model (and, if given, on this device). */
+  isRunningFor(model: CleanupModelId, device?: CleanupDevice): boolean {
+    return !!this.child && this.model === model && (!device || this.device === device);
   }
 
   /** Spawns (or reuses) the warm server; resolves to its /v1 base URL. */
-  async ensureReady(model: CleanupModelId): Promise<string> {
+  async ensureReady(model: CleanupModelId, device: CleanupDevice = 'gpu'): Promise<string> {
     const runtime = llamaRuntime();
     if (!runtime) throw new Error(tMain('cleanup.noEngine'));
-    if (!this.isRunningFor(model)) {
+    if (!this.isRunningFor(model, device)) {
       if (!this.starting) {
-        this.starting = this.spawnAndWait(runtime.exe, runtime.backend, model).finally(() => {
+        this.starting = this.spawnAndWait(runtime.exe, runtime.backend, model, device).finally(() => {
           this.starting = null;
         });
       }
@@ -258,20 +261,29 @@ export class LlamaCppServer {
     }
   }
 
-  private async spawnAndWait(exe: string, backend: GpuBackend, model: CleanupModelId): Promise<void> {
+  private async spawnAndWait(
+    exe: string,
+    backend: GpuBackend,
+    model: CleanupModelId,
+    device: CleanupDevice,
+  ): Promise<void> {
     this.stop();
     const modelPath = cleanupModelPath(model);
     if (!fs.existsSync(modelPath)) throw new Error(`Model file missing: ${modelPath}`);
+    const cpu = device === 'cpu';
     const args = [
       '-m', modelPath,
       '--host', '127.0.0.1',
       '--port', String(PORT),
-      '-ngl', '999', // every layer on the GPU
+      // GPU: every layer on the card. CPU: '-dev none' keeps llama.cpp off
+      // the graphics card completely (no VRAM, no GPU work for games/editors).
+      ...(cpu ? ['-dev', 'none', '-ngl', '0'] : ['-ngl', '999']),
       '-c', String(CTX_SIZE),
       '-np', '1',
-      // Every layer runs on the GPU, so the CPU only feeds it: 4 threads are
-      // as fast as all cores and leave the rest of the PC free.
-      '-t', '4',
+      // GPU: the CPU only feeds the card, so 4 threads are as fast as all
+      // cores. CPU: the math runs on the threads; half the cores keeps the
+      // rest of the PC responsive.
+      '-t', String(cpu ? Math.max(2, Math.floor(os.cpus().length / 2)) : 4),
       '-fa', 'on',
       '--reasoning', 'off', // Qwen3.5 would otherwise "think" first
       '--cache-ram', '0',
@@ -280,7 +292,7 @@ export class LlamaCppServer {
     // Vulkan sees integrated GPUs too and would split the model across all of
     // them (~40% slower here). Keep it on device 0: the Windows Vulkan loader
     // lists the high-performance GPU first.
-    if (backend === 'vulkan') args.push('-sm', 'none', '-mg', '0');
+    if (backend === 'vulkan' && !cpu) args.push('-sm', 'none', '-mg', '0');
     const child = spawn(exe, args, {
       cwd: path.dirname(exe),
       windowsHide: true,
@@ -289,6 +301,7 @@ export class LlamaCppServer {
     runInBackground(child);
     this.child = child;
     this.model = model;
+    this.device = device;
     this.logLines = [];
     const onData = (buf: Buffer) => {
       for (const line of buf.toString('utf8').split(/\r?\n/)) {

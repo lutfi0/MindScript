@@ -12,7 +12,7 @@ declare global {
   interface Window {
     msEngine: {
       onJob(
-        cb: (job: { id: number; model: string; language: string; data: ArrayBuffer | Uint8Array; mime: string; offsetMs?: number; serverUrl?: string }) => void,
+        cb: (job: { id: number; model: string; language: string; data: ArrayBuffer | Uint8Array; mime: string; offsetMs?: number; serverUrl?: string; prompt?: string }) => void,
       ): void;
       onLoad(cb: (msg: { model: string; serverUrl?: string }) => void): void;
       result(msg: { id: number; ok: boolean; text?: string; error?: string }): void;
@@ -168,6 +168,7 @@ async function transcribeCpp(
   serverUrl: string,
   pcm: Float32Array,
   language: string,
+  prompt?: string,
 ): Promise<string> {
   const form = new FormData();
   form.append('file', new Blob([pcmToWav(pcm)], { type: 'audio/wav' }), 'audio.wav');
@@ -177,6 +178,16 @@ async function transcribeCpp(
   // like "Thank you for watching" — values proven by OpenWhispr in #1458).
   form.append('entropy_thold', '2.8');
   form.append('logprob_thold', '-1.25');
+  // Spelling hints from the personal dictionary: without them Whisper writes
+  // English words in Turkish-sounding spellings. With greedy decoding a prompt
+  // makes Whisper drop words (~14% in our test), so a prompt always comes with
+  // beam search (no loss). Without a prompt decoding stays greedy: faster and
+  // lighter on the GPU.
+  if (prompt) {
+    form.append('prompt', prompt);
+    form.append('beam_size', '5');
+    form.append('best_of', '5');
+  }
   const res = await fetch(`${serverUrl}/inference`, { method: 'POST', body: form });
   if (!res.ok) throw new Error(`whisper-server HTTP ${res.status}`);
   const json = (await res.json()) as { text?: string };
@@ -217,7 +228,7 @@ window.msEngine.onJob(async (job) => {
       return;
     }
     if (cppUrl) {
-      const text = await transcribeCpp(cppUrl, pcm, job.language);
+      const text = await transcribeCpp(cppUrl, pcm, job.language, job.prompt);
       window.msEngine.result({ id: job.id, ok: true, text });
       return;
     }

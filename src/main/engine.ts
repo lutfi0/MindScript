@@ -75,6 +75,8 @@ interface EngineJob {
   offsetMs?: number;
   /** whisper.cpp route: warm server URL the renderer should POST WAV chunks to. */
   serverUrl?: string;
+  /** whisper.cpp route: starting prompt (spelling hints for foreign words). */
+  prompt?: string;
 }
 
 interface EngineResultMsg {
@@ -95,6 +97,13 @@ export class TranscriptionEngine {
   private modelReady: Promise<void> | null = null;
   private listeners: ((status: ModelStatus) => void) | null = null;
   private cpp = new WhisperCppServer();
+  private promptProvider: ((language: string) => string) | null = null;
+
+  /** Supplies the Whisper starting prompt for a language; read on every job so
+   *  dictionary edits apply to the very next dictation. */
+  setPromptProvider(fn: (language: string) => string): void {
+    this.promptProvider = fn;
+  }
 
   /** Kills the warm whisper.cpp server (called on app quit). */
   dispose(): void {
@@ -263,6 +272,7 @@ export class TranscriptionEngine {
       mime,
       offsetMs,
       serverUrl: isGgmlModel(model) ? this.cpp.url : undefined,
+      prompt: isGgmlModel(model) ? this.promptProvider?.(language) : undefined,
     };
     const promise = new Promise<string>((resolve, reject) => {
       this.pending.set(id, { resolve, reject });

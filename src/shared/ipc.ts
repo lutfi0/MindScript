@@ -58,10 +58,14 @@ export interface EngineSettings {
 
 /** Built-in text-cleanup model (GGUF) served by the bundled llama.cpp
  *  CUDA server — the no-install alternative to Ollama. */
-export type BuiltinCleanupId = 'qwen3.5-2b-q4' | 'gemma3-4b-q4';
+export type BuiltinCleanupId = 'qwen3-0.6b-q4' | 'qwen3.5-2b-q4' | 'gemma3-4b-q4';
 export type CleanupModelId = BuiltinCleanupId | `gguf-custom-${string}`;
 
 export type PolishEngine = 'builtin' | 'ollama';
+
+/** Where the built-in cleanup model runs: the graphics card, or the CPU
+ *  (slower, but leaves the GPU free for games and editors). */
+export type CleanupDevice = 'gpu' | 'cpu';
 
 export interface PolishSettings {
   /** optional second pass that fixes punctuation/casing/typos */
@@ -70,6 +74,8 @@ export interface PolishSettings {
   engine: PolishEngine;
   /** model for the built-in engine */
   localModel: CleanupModelId;
+  /** run the built-in model on the GPU (default) or on the CPU */
+  device: CleanupDevice;
   /** minutes without use before the built-in model leaves VRAM; 0 = never */
   idleUnloadMin: number;
   /** Ollama: e.g. http://127.0.0.1:11434/v1 */
@@ -103,6 +109,12 @@ export interface Settings {
    * Behavior page shows the new version and installs it on request.
    */
   updateNotify: boolean;
+  /**
+   * Personal dictionary: names and foreign words (one per line or comma
+   * separated) that the speech model should spell exactly. Sent to Whisper as
+   * its starting prompt and to the cleanup model as a spelling list.
+   */
+  dictionary: string;
   /** third-party models added from a link (managed through their own IPC) */
   customModels: CustomModel[];
 }
@@ -131,7 +143,10 @@ export const DEFAULT_SETTINGS: Settings = {
   polish: {
     enabled: false,
     engine: 'builtin',
-    localModel: 'qwen3.5-2b-q4',
+    // Lightest model that still does the job: ~0.4 GB download, well under
+    // 1 GB of VRAM. Users can move up to a bigger one or turn cleanup off.
+    localModel: 'qwen3-0.6b-q4',
+    device: 'gpu',
     idleUnloadMin: 10,
     baseUrl: 'http://127.0.0.1:11434/v1',
     model: 'llama3.2',
@@ -145,6 +160,7 @@ export const DEFAULT_SETTINGS: Settings = {
   liveDrafts: true,
   uiLanguage: 'auto',
   updateNotify: true,
+  dictionary: '',
   customModels: [],
 };
 
@@ -287,6 +303,13 @@ export const CLEANUP_MODELS: Record<
   BuiltinCleanupId,
   { label: string; size: string; hint: string; repo: string; file: string }
 > = {
+  'qwen3-0.6b-q4': {
+    label: 'Qwen3 0.6B (default, lightest)',
+    size: '~0.4 GB',
+    hint: 'Tiny and very fast (~0.6 GB VRAM, or run it on the CPU); fixes punctuation and casing, but misses some commas and word endings',
+    repo: 'unsloth/Qwen3-0.6B-GGUF',
+    file: 'Qwen3-0.6B-Q4_K_M.gguf',
+  },
   'qwen3.5-2b-q4': {
     label: 'Qwen3.5 2B (light)',
     size: '~1.3 GB',

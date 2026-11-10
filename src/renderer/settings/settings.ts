@@ -598,6 +598,7 @@ function renderCleanup(): void {
   $('builtinBox2').classList.toggle('hidden', !builtin);
   $('ollamaBox2').classList.toggle('hidden', builtin);
   ($('idleUnload') as HTMLSelectElement).value = String(settings.polish.idleUnloadMin);
+  ($('cleanupDevice') as HTMLSelectElement).value = settings.polish.device;
   renderSummary();
   void refreshPolishConn();
 }
@@ -863,6 +864,7 @@ async function init(): Promise<void> {
   ($('language') as HTMLSelectElement).value = settings.engine.language;
   ($('polishEnabled') as HTMLInputElement).checked = settings.polish.enabled;
   ($('liveDrafts') as HTMLInputElement).checked = settings.liveDrafts;
+  ($('dictionary') as HTMLTextAreaElement).value = settings.dictionary;
 
   // Paired controls on their own pages
   ($('polishEnabled2') as HTMLInputElement).checked = settings.polish.enabled;
@@ -923,6 +925,22 @@ async function init(): Promise<void> {
   $('idleUnload').addEventListener('change', () => {
     const v = Number(($('idleUnload') as HTMLSelectElement).value) || 0;
     void save({ polish: { ...settings.polish, idleUnloadMin: v } });
+  });
+  // Personal dictionary: saved when the box loses focus and by the Save button
+  const saveDictionary = async (): Promise<void> => {
+    const value = ($('dictionary') as HTMLTextAreaElement).value;
+    await save({ dictionary: value });
+    const terms = new Set(value.split(/[\n\r,;]+/).map((s) => s.trim().toLowerCase()).filter(Boolean)).size;
+    $('dictionaryResult').textContent = t('dict.saved', { count: String(terms), first: String(Math.min(terms, 8)) });
+  };
+  $('dictionary').addEventListener('change', () => void saveDictionary());
+  $('dictionarySave').addEventListener('click', () => void saveDictionary());
+  $('dictionary').addEventListener('input', () => {
+    $('dictionaryResult').textContent = '';
+  });
+  $('cleanupDevice').addEventListener('change', () => {
+    const v = ($('cleanupDevice') as HTMLSelectElement).value === 'cpu' ? 'cpu' : 'gpu';
+    void save({ polish: { ...settings.polish, device: v } });
   });
 
   // UI language — applies instantly.

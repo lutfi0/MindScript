@@ -54,6 +54,7 @@ function loadPolish(defaults: PolishSettings, loaded: unknown, customs: CustomMo
   if (!isCleanupModel(p.localModel) && !customs.some((m) => m.kind === 'cleanup' && m.id === p.localModel)) {
     p.localModel = defaults.localModel;
   }
+  if (p.device !== 'gpu' && p.device !== 'cpu') p.device = defaults.device;
   if (typeof p.idleUnloadMin !== 'number' || p.idleUnloadMin < 0) p.idleUnloadMin = defaults.idleUnloadMin;
   return p;
 }
@@ -95,6 +96,7 @@ export class SettingsStore {
         liveDrafts: raw.liveDrafts !== false,
         uiLanguage: typeof raw.uiLanguage === 'string' ? raw.uiLanguage : 'auto',
         updateNotify: raw.updateNotify !== false,
+        dictionary: typeof raw.dictionary === 'string' ? raw.dictionary.slice(0, 4000) : d.dictionary,
         customModels,
       };
       return s;

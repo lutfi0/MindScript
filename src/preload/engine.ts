@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 const api = {
   onJob(
-    cb: (job: { id: number; model: string; language: string; data: ArrayBuffer | Uint8Array; mime: string; offsetMs?: number; serverUrl?: string }) => void,
+    cb: (job: { id: number; model: string; language: string; data: ArrayBuffer | Uint8Array; mime: string; offsetMs?: number; serverUrl?: string; prompt?: string }) => void,
   ): void {
     ipcRenderer.on('engine:job', (_e, job) => cb(job));
   },

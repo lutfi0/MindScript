@@ -135,7 +135,23 @@ function unwrap(out: string): string {
   return s;
 }
 
-async function polishChunk(chunk: string, target: PolishTarget): Promise<string> {
+/**
+ * The system prompt, plus a spelling list when there is one. Without the list
+ * a small model "corrects" foreign words the speaker used on purpose; with it
+ * the model keeps them and fixes Turkish-sounding misspellings of them.
+ */
+function systemPrompt(terms: string[]): string {
+  if (!terms.length) return POLISH_SYSTEM_PROMPT;
+  return (
+    POLISH_SYSTEM_PROMPT +
+    ' The speaker may mix foreign words into their language. If a word in the transcript is a ' +
+    'phonetic misspelling of one of these terms, write the term exactly as listed: ' +
+    terms.join(', ') +
+    '.'
+  );
+}
+
+async function polishChunk(chunk: string, target: PolishTarget, terms: string[]): Promise<string> {
   const data = await fetchJson(
     joinUrl(target.baseUrl, 'chat/completions'),
     {
@@ -147,7 +163,7 @@ async function polishChunk(chunk: string, target: PolishTarget): Promise<string>
         // proofread text is about as long as the input; cap runaway answers
         max_tokens: Math.ceil(chunk.length / 2) + 64,
         messages: [
-          { role: 'system', content: POLISH_SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt(terms) },
           ...EXAMPLES.flatMap(([u, a]) => [
             { role: 'user', content: u },
             { role: 'assistant', content: a },
@@ -175,12 +191,13 @@ export async function polishText(
   text: string,
   target: PolishTarget,
   onRejected?: (reason: string) => void,
+  terms: string[] = [],
 ): Promise<string> {
   if (!text.trim()) return text;
   const out: string[] = [];
   for (const chunk of chunkText(text)) {
     try {
-      out.push(await polishChunk(chunk, target));
+      out.push(await polishChunk(chunk, target, terms));
     } catch (err) {
       onRejected?.(err instanceof Error ? err.message : String(err));
       out.push(chunk);

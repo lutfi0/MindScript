@@ -258,7 +258,7 @@ h1 { font-size: 22px; font-weight: 650; }
 .field label { width: 128px; flex-shrink: 0; color: var(--muted); font-size: 13px; }
 .field.inline label { width: auto; color: var(--text); font-weight: 550; }
 
-input[type="text"], select {
+input[type="text"], select, textarea {
   flex: 1;
   min-width: 0;
   background: var(--input);
@@ -270,8 +270,12 @@ input[type="text"], select {
   outline: none;
   transition: border-color 0.15s ease;
 }
-input[type="text"]:hover, select:hover { border-color: var(--hover-border); }
-input[type="text"]:focus, select:focus { border-color: var(--border-strong); }
+input[type="text"]:hover, select:hover, textarea:hover { border-color: var(--hover-border); }
+input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--border-strong); }
+/* No resize grip: with the custom scrollbar it left a white square in the corner */
+textarea { resize: none; font-family: inherit; line-height: 1.45; }
+textarea::-webkit-scrollbar-corner { background: transparent; }
+textarea::-webkit-resizer { display: none; }
 
 select {
   appearance: none;

@@ -14,6 +14,7 @@ import { openWindow, openSettingsPage, registerWindowControls } from './windows'
 import { captureForegroundHwnd, pasteIntoActiveApp } from './paste';
 import { polishText, testPolish } from './polish';
 import { collapseRepeats } from './transcript';
+import { cleanupTerms, whisperPrompt } from './vocabulary';
 import { KeyHoldWatcher } from './keyhold';
 import { cleanupIds, cleanupSpec, setCustomModels, speechIds, speechSpec } from './catalog';
 import { detectHardware } from './hardware';
@@ -56,6 +57,8 @@ const settingsStore = new SettingsStore();
 const historyStore = new HistoryStore();
 const overlay = new OverlayController();
 const engine = new TranscriptionEngine();
+// `settings` is declared below; the provider only runs later, on each transcription.
+engine.setPromptProvider(() => whisperPrompt(settings.dictionary));
 const llama = new LlamaCppServer();
 let settings = settingsStore.load();
 setCustomModels(settings.customModels);
@@ -204,11 +207,16 @@ function builtinCleanupActive(): boolean {
  *  it is warm by the time the transcript is ready. */
 function prewarmCleanup(): void {
   if (!builtinCleanupActive()) return;
-  const { localModel, idleUnloadMin } = settings.polish;
+  const { localModel, idleUnloadMin, device } = settings.polish;
   void llama
-    .ensureReady(localModel)
+    .ensureReady(localModel, device)
     .then(() => llama.touch(idleUnloadMin))
     .catch((err) => diag('cleanup-prewarm-failed', err instanceof Error ? err.message : String(err)));
+}
+
+/** Spelling list for the cleanup model: the user's whole dictionary. */
+function spellingList(): string[] {
+  return cleanupTerms(settings.dictionary);
 }
 
 /** Cleanup pass; any failure keeps the raw transcript. */
@@ -216,15 +224,15 @@ async function runPolish(text: string): Promise<string> {
   const p = settings.polish;
   const kept = (reason: string) => diag('polish-kept-raw', reason.slice(0, 300));
   if (p.engine === 'ollama') {
-    return polishText(text, { baseUrl: p.baseUrl, model: p.model }, kept);
+    return polishText(text, { baseUrl: p.baseUrl, model: p.model }, kept, spellingList());
   }
   if (!builtinCleanupActive()) {
     kept('built-in cleanup model not downloaded');
     return text;
   }
   try {
-    const baseUrl = await llama.ensureReady(p.localModel);
-    return await polishText(text, { baseUrl, model: p.localModel }, kept);
+    const baseUrl = await llama.ensureReady(p.localModel, p.device);
+    return await polishText(text, { baseUrl, model: p.localModel }, kept, spellingList());
   } catch (err) {
     kept(err instanceof Error ? err.message : String(err));
     return text;
@@ -511,7 +519,12 @@ function applySettings(next: Settings): SaveResult {
     }
   }
   const np = next.polish;
-  if (!np.enabled || np.engine !== 'builtin' || np.localModel !== prevPolish.localModel) {
+  if (
+    !np.enabled ||
+    np.engine !== 'builtin' ||
+    np.localModel !== prevPolish.localModel ||
+    np.device !== prevPolish.device
+  ) {
     // free the VRAM right away; the next dictation reloads what it needs
     llama.stop();
   } else if (np.idleUnloadMin !== prevPolish.idleUnloadMin && llama.isRunningFor(np.localModel)) {
@@ -582,8 +595,11 @@ function registerIpc(): void {
       // cadence would just queue passes behind each other. The whisper.cpp
       // CUDA route decodes at ~10-30x realtime, so it can afford a ~3s
       // cadence: the final tail at stop time stays tiny.
+      // EXPERIMENT: 30s for the GPU route. Whisper pads every pass to a 30s
+      // window, so frequent short passes keep the GPU busy and froze the PC
+      // while a game engine (Unity) was open. Revert to 3000 if it doesn't help.
       const fast = isGgmlModel(model);
-      const gap = fast ? 3000 : incAtMs === 0 ? 5000 : 8000;
+      const gap = fast ? 30000 : incAtMs === 0 ? 5000 : 8000;
       if (elapsed - incAtMs < gap) return;
       interimBusy = true;
       const buf = Buffer.from(payload as Uint8Array);
@@ -644,6 +660,7 @@ function registerIpc(): void {
       liveDrafts: partial.liveDrafts ?? settings.liveDrafts,
       uiLanguage: typeof partial.uiLanguage === 'string' ? partial.uiLanguage : settings.uiLanguage,
       updateNotify: typeof partial.updateNotify === 'boolean' ? partial.updateNotify : settings.updateNotify,
+      dictionary: typeof partial.dictionary === 'string' ? partial.dictionary.slice(0, 4000) : settings.dictionary,
       // custom models change only through model:add-custom / the delete handlers
       customModels: settings.customModels,
     };
@@ -856,7 +873,7 @@ void app.whenReady().then(async () => {
     // [--polish-test-model=<id>] downloads runtime + model if needed,
     // starts llama-server and prints the cleaned text.
     const modelArg = process.argv.find((a) => a.startsWith('--polish-test-model='))?.split('=')[1];
-    const model: CleanupModelId = modelArg && isCleanupModel(modelArg) ? modelArg : 'qwen3.5-2b-q4';
+    const model: CleanupModelId = modelArg && isCleanupModel(modelArg) ? modelArg : DEFAULT_SETTINGS.polish.localModel;
     try {
       await ensureCleanupModel(model);
       settings = { ...settings, polish: { ...settings.polish, enabled: true, engine: 'builtin', localModel: model } };

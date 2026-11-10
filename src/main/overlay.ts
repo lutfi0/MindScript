@@ -25,6 +25,7 @@ export class OverlayController {
    *  dropped (first dictation after launch) — queue and flush on load. */
   private loaded = false;
   private pending: Array<() => void> = [];
+  private topTimer: NodeJS.Timeout | null = null;
 
   private create(): BrowserWindow {
     const win = new BrowserWindow({
@@ -59,11 +60,18 @@ export class OverlayController {
     });
     win.setAlwaysOnTop(true, 'screen-saver');
     win.setIgnoreMouseEvents(false);
+    // If anything ever clears the topmost flag, put it back right away.
+    win.on('always-on-top-changed', (_e, onTop) => {
+      if (!onTop && !win.isDestroyed()) win.setAlwaysOnTop(true, 'screen-saver');
+    });
     const syncBackground = () => {
       if (!win.isDestroyed()) win.setBackgroundColor(pillBackground());
     };
     nativeTheme.on('updated', syncBackground);
-    win.on('closed', () => nativeTheme.off('updated', syncBackground));
+    win.on('closed', () => {
+      nativeTheme.off('updated', syncBackground);
+      this.stopKeepOnTop();
+    });
     win.webContents.once('did-finish-load', () => {
       this.loaded = true;
       for (const send of this.pending.splice(0)) send();
@@ -118,10 +126,33 @@ export class OverlayController {
     const { x, y } = this.positionFor(position);
     win.setPosition(x, y, false);
     win.showInactive();
+    this.raise(win);
+    this.startKeepOnTop(win);
   }
 
   hide(): void {
+    this.stopKeepOnTop();
     if (this.win && !this.win.isDestroyed()) this.win.hide();
+  }
+
+  /** Re-asserts the topmost z-order. Other topmost windows (full-screen apps,
+   *  the taskbar, other always-on-top tools) can slip above a window that was
+   *  made topmost only once, so this runs on show and while the pill is up.
+   *  moveTop() does not activate the window, focus stays in the target app. */
+  private raise(win: BrowserWindow): void {
+    if (win.isDestroyed() || !win.isVisible()) return;
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.moveTop();
+  }
+
+  private startKeepOnTop(win: BrowserWindow): void {
+    if (this.topTimer) return;
+    this.topTimer = setInterval(() => this.raise(win), 400);
+  }
+
+  private stopKeepOnTop(): void {
+    if (this.topTimer) clearInterval(this.topTimer);
+    this.topTimer = null;
   }
 
   sendState(state: OverlayStateMsg): void {

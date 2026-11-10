@@ -30,7 +30,7 @@ public static class MsKeyWatch {
       else if (p[0] == "lock" && p.Length > 2) {
         int k = int.Parse(p[1]);
         if (Toggled(k) != int.Parse(p[2])) {
-          muteUntil = Environment.TickCount + 250;
+          muteUntil = Environment.TickCount + 120;
           keybd_event((byte)k, 0, 0, UIntPtr.Zero);
           keybd_event((byte)k, 0, 2, UIntPtr.Zero);
         }
@@ -46,7 +46,13 @@ public static class MsKeyWatch {
     int lockWhileUp = 0;
     Console.Out.WriteLine("ready");
     Console.Out.Flush();
+    int lastBeat = Environment.TickCount;
     while (true) {
+      if (Environment.TickCount - lastBeat >= 2000) {
+        lastBeat = Environment.TickCount;
+        Console.Out.WriteLine("hb");
+        Console.Out.Flush();
+      }
       int k = vk;
       bool d = k != 0 && Down(k);
       if (Environment.TickCount < muteUntil) d = was;
@@ -62,7 +68,7 @@ public static class MsKeyWatch {
         }
         Console.Out.Flush();
       }
-      Thread.Sleep(20);
+      Thread.Sleep(8);
     }
   }
 }
@@ -143,6 +149,9 @@ export class KeyHoldWatcher {
   private startedAt = 0;
   private handsFree = false;
   private accel = '';
+  private ready = false;
+  private lastSeen = 0;
+  private watchdog: NodeJS.Timeout | null = null;
 
   constructor(private readonly h: HoldHandlers) {}
 
@@ -169,10 +178,25 @@ export class KeyHoldWatcher {
   }
 
   stop(): void {
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = null;
     const child = this.child;
     this.child = null;
+    this.ready = false;
     child?.stdin.end();
     child?.kill();
+  }
+
+  /** Throws the helper away and starts a fresh one (after sleep/unlock, or if it hangs). */
+  restart(reason: string): void {
+    if (!this.key) return;
+    this.h.log('keyhold-restart', reason);
+    // A dead helper can never report the release, don't leave a recording running.
+    if (this.holding && this.h.isRecording()) this.h.stop();
+    const accel = this.accel;
+    const holdMs = this.holdMs;
+    this.stop();
+    this.configure(accel, holdMs);
   }
 
   private reset(): void {
@@ -192,8 +216,20 @@ export class KeyHoldWatcher {
       { windowsHide: true },
     );
     this.child = child;
+    this.ready = false;
+    this.lastSeen = Date.now();
+    // The helper sends a heartbeat every 2 s; silence means it hung or was
+    // frozen, so the key would no longer be noticed. Compiling the C# on first
+    // start can take a while, hence the longer grace before "ready".
+    if (this.watchdog) clearInterval(this.watchdog);
+    this.watchdog = setInterval(() => {
+      if (this.child !== child) return;
+      const limit = this.ready ? 8000 : 30000;
+      if (Date.now() - this.lastSeen > limit) this.restart('no-heartbeat');
+    }, 2000);
     let buf = '';
     child.stdout.on('data', (d: Buffer) => {
+      this.lastSeen = Date.now();
       buf += d.toString('utf8');
       let i: number;
       while ((i = buf.indexOf('\n')) >= 0) {
@@ -207,6 +243,9 @@ export class KeyHoldWatcher {
     child.on('exit', (code) => {
       if (this.child !== child) return;
       this.child = null;
+      this.ready = false;
+      if (this.watchdog) clearInterval(this.watchdog);
+      this.watchdog = null;
       if (!this.key) return;
       // helper died unexpectedly — bring it back
       this.h.log('keyhold-exit', `code=${code}`);
@@ -222,6 +261,7 @@ export class KeyHoldWatcher {
 
   private onLine(line: string): void {
     if (line === 'ready') {
+      this.ready = true;
       this.h.log('keyhold-ready', `vk=${this.key?.vk} hold=${this.holdMs}ms`);
       return;
     }

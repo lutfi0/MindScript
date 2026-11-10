@@ -2,7 +2,7 @@
 // Fully local voice dictation for Windows: global hotkey → overlay records →
 // Whisper runs on this machine (never the cloud) → text is pasted into the
 // focused app → kept in local history.
-import { app, globalShortcut, ipcMain, clipboard, BrowserWindow } from 'electron';
+import { app, globalShortcut, ipcMain, clipboard, BrowserWindow, powerMonitor } from 'electron';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
@@ -856,6 +856,19 @@ void app.whenReady().then(async () => {
     `[mindscript] hotkey ${settings.hotkey} ${hotkeyOk ? 'registered' : 'FAILED to register'}`,
   );
   diag('app-ready', `hotkey=${settings.hotkey} registered=${hotkeyOk} model=${settings.engine.model}`);
+
+  // After sleep or a screen lock the key watcher / global shortcut can go
+  // stale; rebuild them so the hotkey keeps working.
+  const refreshHotkeys = (why: string) => {
+    if (phase !== 'idle') return;
+    diag('hotkey-refresh', why);
+    setTimeout(() => {
+      keyHold.restart(why);
+      registerHotkeys();
+    }, 1500);
+  };
+  powerMonitor.on('resume', () => refreshHotkeys('resume'));
+  powerMonitor.on('unlock-screen', () => refreshHotkeys('unlock'));
 
   app.on('second-instance', () => openWindow('settings'));
 

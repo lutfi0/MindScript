@@ -72,10 +72,12 @@ jobs:
         run: |
           $tag = "whisper-vulkan-$env:WHISPER_VERSION"
           $zip = "whisper-vulkan-$env:WHISPER_VERSION-win-x64.zip"
-          $notes = "whisper.cpp $env:WHISPER_VERSION (MIT, https://github.com/ggml-org/whisper.cpp) built with the Vulkan backend for Windows x64 by this workflow. Downloaded by MindScript on AMD and Intel GPUs; not an app release."
+          $title = "Speech engine for AMD and Intel graphics cards (Vulkan)"
+          $notes = "This is NOT the MindScript app. It is the speech engine package for computers with an **AMD or Intel** graphics card (it runs through Vulkan). For NVIDIA graphics cards see the separate 'Speech engine for NVIDIA graphics cards (CUDA)' release.`n`nYou do not need to download anything here: MindScript fetches the right engine for your graphics card by itself the first time you use it. The app installer is in the latest 'v0.x.y' release.`n`nwhisper.cpp $env:WHISPER_VERSION (MIT, https://github.com/ggml-org/whisper.cpp), built for Windows x64 with the Vulkan backend by this repository's workflow."
           gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
           if ($LASTEXITCODE -eq 0) {
             gh release upload $tag $zip --clobber --repo $env:GITHUB_REPOSITORY
+            gh release edit $tag --title $title --notes $notes --prerelease --repo $env:GITHUB_REPOSITORY
           } else {
-            gh release create $tag $zip --prerelease --target $env:GITHUB_SHA --title "whisper.cpp $env:WHISPER_VERSION Vulkan runtime" --notes $notes --repo $env:GITHUB_REPOSITORY
+            gh release create $tag $zip --prerelease --target $env:GITHUB_SHA --title $title --notes $notes --repo $env:GITHUB_REPOSITORY
           }

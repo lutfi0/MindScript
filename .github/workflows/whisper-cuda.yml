@@ -1,0 +1,61 @@
+# Publishes the NVIDIA (CUDA) speech engine as its own release, next to the
+# AMD / Intel (Vulkan) one. It is the official whisper.cpp Windows CUDA build,
+# trimmed to the files MindScript needs (the archive ships ~40 other tools).
+# Run manually from the Actions tab.
+name: whisper.cpp CUDA runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: whisper.cpp release tag of the official CUDA build
+        default: b5454
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-2022
+    env:
+      WHISPER_BUILD: ${{ inputs.build }}
+    steps:
+      - name: Download the official build
+        shell: pwsh
+        run: |
+          curl.exe -sSL --fail -o official.zip "https://github.com/ggml-org/whisper.cpp/releases/download/$env:WHISPER_BUILD/whisper-bin-win-cuda-12.4.0-x64.zip"
+          Expand-Archive official.zip -DestinationPath official
+          Get-ChildItem official -Recurse -Filter whisper-server.exe | Select-Object FullName
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $src = (Get-ChildItem official -Recurse -Filter whisper-server.exe | Select-Object -First 1).DirectoryName
+          $out = "$env:RUNNER_TEMP\pkg"
+          New-Item -ItemType Directory $out | Out-Null
+          Copy-Item "$src\whisper-server.exe", "$src\whisper.dll" $out
+          Copy-Item "$src\ggml*.dll" $out
+          Copy-Item "$src\cudart64_12.dll", "$src\cublas64_12.dll", "$src\cublasLt64_12.dll" $out
+          foreach ($f in 'whisper-server.exe', 'ggml-cuda.dll', 'cudart64_12.dll') {
+            if (-not (Test-Path "$out\$f")) { throw "$f missing" }
+          }
+          Get-ChildItem $out | Format-Table Name, Length
+          Compress-Archive "$out\*" "whisper-cuda-$env:WHISPER_BUILD-win-x64.zip"
+
+      - name: Publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "whisper-cuda-$env:WHISPER_BUILD"
+          $zip = "whisper-cuda-$env:WHISPER_BUILD-win-x64.zip"
+          $title = "Speech engine for NVIDIA graphics cards (CUDA)"
+          $notes = "This is NOT the MindScript app. It is the speech engine package for computers with an **NVIDIA** graphics card (it runs through CUDA). For AMD or Intel graphics cards see the separate 'Speech engine for AMD and Intel graphics cards (Vulkan)' release.`n`nYou do not need to download anything here: MindScript fetches the right engine for your graphics card by itself the first time you use it. The app installer is in the latest 'v0.x.y' release.`n`nThe official whisper.cpp $env:WHISPER_BUILD Windows CUDA 12.4 build (MIT, https://github.com/ggml-org/whisper.cpp), trimmed to what MindScript needs. The NVIDIA CUDA runtime libraries inside are NVIDIA's, redistributed as in the official build."
+          gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $zip --clobber --repo $env:GITHUB_REPOSITORY
+            gh release edit $tag --title $title --notes $notes --prerelease --repo $env:GITHUB_REPOSITORY
+          } else {
+            gh release create $tag $zip --prerelease --target $env:GITHUB_SHA --title $title --notes $notes --repo $env:GITHUB_REPOSITORY
+          }

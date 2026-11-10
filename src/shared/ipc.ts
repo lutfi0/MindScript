@@ -306,7 +306,7 @@ export const CLEANUP_MODELS: Record<
   'qwen3-0.6b-q4': {
     label: 'Qwen3 0.6B (default, lightest)',
     size: '~0.4 GB',
-    hint: 'Tiny and very fast (~0.6 GB VRAM, or run it on the CPU); fixes punctuation and casing, but misses some commas and word endings',
+    hint: 'Tiny and fast (~0.6 GB VRAM, or on the CPU); basic punctuation and casing',
     repo: 'unsloth/Qwen3-0.6B-GGUF',
     file: 'Qwen3-0.6B-Q4_K_M.gguf',
   },

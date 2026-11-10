@@ -23,10 +23,12 @@ export type BuiltinWhisperId =
   | 'whisper-large-v3-turbo'
   | 'ggml-small-q5'
   | 'ggml-large-v3-turbo-q5'
-  | 'ggml-large-v3-turbo-tr-q5'
   | 'ggml-large-v3-q5'
   | 'ggml-large-v3-turbo-f16'
   | 'ggml-large-v3-f16';
+
+/** The developer's own pick, shown as a suggestion in the model list (never forced). */
+export const RECOMMENDED_SPEECH_MODEL: BuiltinWhisperId = 'ggml-large-v3-q5';
 
 /** Suggested catalog entries, or a whisper.cpp model the user added by link. */
 export type WhisperModelId = BuiltinWhisperId | `ggml-custom-${string}`;
@@ -199,6 +201,8 @@ export interface ModelCatalogEntry {
   sizeOnDisk?: number;
   /** added by the user from a link (download URL in `repo`) */
   custom?: boolean;
+  /** the developer's own pick (shown as a suggestion, never forced) */
+  recommended?: boolean;
 }
 
 /** What the onboarding page needs to suggest a first speech model. */
@@ -265,15 +269,6 @@ export const WHISPER_MODELS: Record<
     hint: 'whisper.cpp + NVIDIA CUDA — ~10 s of audio per second; fastest and most accurate',
     repo: 'ggerganov/whisper.cpp',
     file: 'ggml-large-v3-turbo-q5_0.bin',
-  },
-  'ggml-large-v3-turbo-tr-q5': {
-    label: 'Large v3 Turbo Turkish · CUDA',
-    size: '~575 MB',
-    hint: 'Turbo fine-tuned on Turkish speech (selimc, MIT) — Turbo speed, tuned for Turkish',
-    // selimc/whisper-large-v3-turbo-turkish, converted to ggml and q5_0 for whisper.cpp
-    repo: 'selimc/whisper-large-v3-turbo-turkish',
-    file: 'ggml-large-v3-turbo-tr-q5_0.bin',
-    url: 'https://github.com/lutfi0/MindScript/releases/download/models/ggml-large-v3-turbo-tr-q5_0.bin',
   },
   'ggml-large-v3-q5': {
     label: 'Large v3 · CUDA',

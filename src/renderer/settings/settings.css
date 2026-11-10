@@ -655,3 +655,18 @@ button:disabled { opacity: 0.45; cursor: default; }
 .test-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .onb-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
 #page-baslangic .card { display: grid; gap: 12px; }
+
+/* "Recommended" tag next to the developer's own model, and its note on the cleanup page */
+.mrec {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--muted);
+  vertical-align: 1px;
+}
+.rec-note { margin: 0; font-size: 12.5px; color: var(--muted); }

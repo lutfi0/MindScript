@@ -241,22 +241,6 @@
           </div>
         <p class="muted small" data-i18n="models.disclaimer"></p>
         <div id="modelList" class="model-list"></div>
-        <div class="custom-add">
-          <h2 data-i18n="custom.title">Add a model from a link</h2>
-          <p class="muted small" data-i18n="custom.speechHelp"></p>
-          <div class="field">
-            <label for="customSpeechUrl" data-i18n="custom.link">Download link</label>
-            <input type="text" id="customSpeechUrl" placeholder="https://huggingface.co/…/resolve/main/…bin" />
-          </div>
-          <div class="field">
-            <label for="customSpeechName" data-i18n="custom.name">Name (optional)</label>
-            <input type="text" id="customSpeechName" />
-          </div>
-          <div class="test-row">
-            <button class="secondary" id="customSpeechAdd" type="button" data-i18n="custom.add">Add and download</button>
-            <span class="muted small" id="customSpeechResult"></span>
-          </div>
-        </div>
         <p class="muted small foot-note" data-i18n="models.foot">Models are downloaded once from Hugging Face and stored on this computer; no internet needed afterwards.</p>
       </div>
       <div class="card">
@@ -284,6 +268,7 @@
             <div class="strip-sub" data-i18n="polish.toggleSub">Automatically fixes the text after dictation.</div>
           </div>
         </div>
+        <p class="rec-note" data-i18n="polish.recommend"></p>
         <div class="field">
           <label for="polishEngine2" data-i18n="cleanup.engine">Engine</label>
           <select id="polishEngine2">
@@ -310,22 +295,6 @@
               <option value="30" data-i18n="cleanup.idle.30">After 30 minutes</option>
               <option value="0" data-i18n="cleanup.idle.never">Never (always ready)</option>
             </select>
-          </div>
-          <div class="custom-add">
-            <h2 data-i18n="custom.title">Add a model from a link</h2>
-            <p class="muted small" data-i18n="custom.cleanupHelp"></p>
-            <div class="field">
-              <label for="customCleanupUrl" data-i18n="custom.link">Download link</label>
-              <input type="text" id="customCleanupUrl" placeholder="https://huggingface.co/…/resolve/main/…gguf" />
-            </div>
-            <div class="field">
-              <label for="customCleanupName" data-i18n="custom.name">Name (optional)</label>
-              <input type="text" id="customCleanupName" />
-            </div>
-            <div class="test-row">
-              <button class="secondary" id="customCleanupAdd" type="button" data-i18n="custom.add">Add and download</button>
-              <span class="muted small" id="customCleanupResult"></span>
-            </div>
           </div>
           <p class="muted small foot-note" data-i18n="cleanup.foot">Runs on your NVIDIA GPU with llama.cpp. The engine and model are downloaded once; text never leaves this device. The model only fixes punctuation, capitalization and typos — if it tries to change anything else, the original text is kept.</p>
         </div>

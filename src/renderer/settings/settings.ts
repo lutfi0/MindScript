@@ -332,6 +332,14 @@ function modelRow(id: string, entry: ModelCatalogEntry, withMenu: boolean, kind:
   const name = document.createElement('div');
   name.className = 'mname';
   name.textContent = labelFor(id);
+  if (kind === 'speech' && entry.recommended) {
+    // The developer's own setup: a suggestion, never forced
+    const rec = document.createElement('span');
+    rec.className = 'mrec';
+    rec.textContent = t('model.recommended');
+    rec.title = t('model.recommendedTip');
+    name.append(' ', rec);
+  }
   const hint = document.createElement('div');
   hint.className = 'mhint';
   hint.textContent = hintFor(id, entry);
@@ -541,34 +549,6 @@ async function onboardingAuto(): Promise<void> {
   const res = await window.msSettings.ensureModel(id as WhisperModelId);
   if (!res.started) toast(t('toast.dlFailed'), true);
   renderAll();
-}
-
-async function addCustom(kind: CustomModel['kind']): Promise<void> {
-  const prefix = kind === 'speech' ? 'customSpeech' : 'customCleanup';
-  const urlEl = $(`${prefix}Url`) as HTMLInputElement;
-  const nameEl = $(`${prefix}Name`) as HTMLInputElement;
-  const result = $(`${prefix}Result`);
-  const btn = $(`${prefix}Add`) as HTMLButtonElement;
-  btn.disabled = true;
-  result.textContent = t('custom.checking');
-  const res = await window.msSettings.addCustomModel(kind, urlEl.value, nameEl.value);
-  btn.disabled = false;
-  if (!res.ok) {
-    result.textContent = res.message ?? t('toast.dlFailed');
-    return;
-  }
-  result.textContent = '';
-  urlEl.value = '';
-  nameEl.value = '';
-  settings = await window.msSettings.get();
-  if (kind === 'speech') {
-    modelCatalog = await window.msSettings.getModelStates();
-    renderAll();
-  } else {
-    cleanupCatalog = await window.msSettings.getCleanupStates();
-    renderCleanup();
-  }
-  toast(t('custom.added'));
 }
 
 function renderAll(): void {
@@ -1005,8 +985,6 @@ async function init(): Promise<void> {
 
   $('onbAuto').addEventListener('click', () => void onboardingAuto());
   $('onbManual').addEventListener('click', () => showPage('modeller'));
-  $('customSpeechAdd').addEventListener('click', () => void addCustom('speech'));
-  $('customCleanupAdd').addEventListener('click', () => void addCustom('cleanup'));
 
   modelCatalog = await window.msSettings.getModelStates();
   cleanupCatalog = await window.msSettings.getCleanupStates();

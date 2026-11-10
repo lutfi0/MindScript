@@ -6,7 +6,7 @@ import { app, globalShortcut, ipcMain, clipboard, BrowserWindow } from 'electron
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
-import { CustomModel, DEFAULT_SETTINGS, parseModelLink, Channels, DICTATION_LANGUAGES, HOLD_TO_START_OPTIONS, CleanupModelId, HistoryEntry, ModelStatus, SaveResult, Settings, TestResult, WHISPER_MODELS, WhisperModelId, isCleanupModel, isGgmlModel } from '../shared/ipc';
+import { CustomModel, DEFAULT_SETTINGS, RECOMMENDED_SPEECH_MODEL, parseModelLink, Channels, DICTATION_LANGUAGES, HOLD_TO_START_OPTIONS, CleanupModelId, HistoryEntry, ModelStatus, SaveResult, Settings, TestResult, WHISPER_MODELS, WhisperModelId, isCleanupModel, isGgmlModel } from '../shared/ipc';
 import { HistoryStore, SettingsStore } from './store';
 import { OverlayController } from './overlay';
 import { MindScriptTray } from './tray';
@@ -689,6 +689,7 @@ function registerIpc(): void {
         id,
         {
           ...speechSpec(id)!,
+          recommended: id === RECOMMENDED_SPEECH_MODEL,
           dir: modelDir(id),
           downloaded: isModelDownloaded(id),
           sizeOnDisk: modelDirSize(id),

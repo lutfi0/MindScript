@@ -49,3 +49,7 @@ desktop.ini
 
 # Stray tool output
 NVIDIA Corporation/
+
+# AI assistant instructions (kept local)
+CLAUDE.md
+AGENTS.md

@@ -496,15 +496,22 @@ let hasWebGpu = false;
 
 const anySpeechModel = (): boolean => Object.values(modelCatalog).some((e) => e.downloaded);
 
+/** VRAM assumed for an NVIDIA card when nvidia-smi gave no number (MB). */
+const NVIDIA_VRAM_FALLBACK_MB = 8192;
+/** Below this much dedicated VRAM a Vulkan GPU is treated as integrated (MB). */
+const MIN_DISCRETE_VRAM_MB = 2048;
+/** From this much VRAM the large turbo speech model is suggested (MB). */
+const LARGE_MODEL_MIN_VRAM_MB = 4000;
+
 /** A first model that fits this computer — a suggestion, never a requirement. */
 function suggestion(): { id: string; why: string } {
   // unknown VRAM: NVIDIA cards without nvidia-smi are rare and usually big;
   // on AMD/Intel it often means an integrated GPU
-  const vram = hardware?.vramMb ?? (hardware?.nvidia ? 8192 : 0);
+  const vram = hardware?.vramMb ?? (hardware?.nvidia ? NVIDIA_VRAM_FALLBACK_MB : 0);
   // Integrated AMD/Intel GPUs (little dedicated memory) are slower through
   // whisper.cpp Vulkan than a small WebGPU model, so only cards get it.
-  if (hardware?.backend && (hardware.nvidia || vram >= 2048)) {
-    return vram >= 4000
+  if (hardware?.backend && (hardware.nvidia || vram >= MIN_DISCRETE_VRAM_MB)) {
+    return vram >= LARGE_MODEL_MIN_VRAM_MB
       ? { id: 'ggml-large-v3-turbo-q5', why: t('onb.why.cudaBig') }
       : { id: 'ggml-small-q5', why: t('onb.why.cudaSmall') };
   }
